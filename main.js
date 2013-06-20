@@ -3,46 +3,58 @@
 	//输入：str
 	//输出：accountRef
 	//算法：穷举词组匹配mapping表
-	var Mapping=Parse.Object.extend("Mapping");
-	
 	function searchRef(str){
 		str=str+"";
 		var l=str.length;
-		for (var i=l,i>0,i--){
-			for (var j=0,j<l-i+1,j++){
-				var q=new Parse.Query(Mapping);
-				q.startWith("keyWords",str.substr(j,i));
-				q.find({
-					success: function(results){
-					
-					},
-					error: function(error){
-					
-					}
-				});
+		var f=false;
+		var Mapping=Parse.Object.extend("Mapping");
+		if (l==1){
+			var q=new Parse.Query(Mapping);
+			q.equalTo("keyWords",str);
+			q.find({
+				success: function(results){
+					return results.get("accountRef");
+				},
+				error: function(error){
+					return "99999";//未定义的暂存科目
+				}
+			});
+		}else{
+			for (var i=l;i>1;i--){
+				for (var j=0;j<l-i+1;j++){
+					var q=new Parse.Query(Mapping);
+					q.startWith("keyWords",str.substr(j,i));
+					q.find({
+						success: function(results){
+							return results.get("accountRef");
+						},
+						error: function(error){
+						}
+					});
+				}
 			}
+			return "99999";//未定义的暂存科目
 		}
-		return ref;
 	}
 	
-	var Journal = Parse.Object.extend("Journals");//日记账类，作为XMEntry的元素
 	
 	var XMEntry = Parse.Object.extend("XMEntry",{//instance methods
 		parseDescription: function(){
+			var Journal = Parse.Object.extend("Journals");//日记账类，作为XMEntry.journals的元素
 			var des=this.get("description")+"";
 			if (des.length>0){
 				var desArr=des.split(" ");
 				if (desArr.length==1){
-					if (isNaN(desArr[0])){
+					if (isNaN(desArr)){
 						this.set("returnCode","200");
 					}else{
 						var debitJournal = new Journal();
-						debitJournal.set("amount",desArr[0]);
+						debitJournal.set("amount",desArr);
 						debitJournal.set("accountRef",searchRef("其他"));
 						this.add("journals",debitJournal);
 						
 						var creditJournal = new Journal();
-						creditJournal.set("amount",-desArr[0]);
+						creditJournal.set("amount",-desArr);
 						creditJournal.set("accountRef",searchRef("现金"));
 						this.add("journals",creditJournal);
 						
@@ -66,11 +78,13 @@
 						}
 					}
 					if (f){
+						if (debitStr=="") debitStr="其他";
 						var debitJournal = new Journal();
 						debitJournal.set("amount",am);
 						debitJournal.set("accountRef",searchRef(debitStr));
 						this.add("journals",debitJournal);
 						
+						if (creditStr=="") creditStr="现金";
 						var creditJournal = new Journal();
 						creditJournal.set("amount",-am);
 						creditJournal.set("accountRef",searchRef(creditStr));
@@ -86,7 +100,16 @@
 				}
 				switch (this.get("returnCode")){
 					case "100":
-						
+						var userReport= new XMReport();
+						userReport.recordEntry(this);
+						userReport.save(null,{
+							success: function(result){
+								
+							},
+							error: function(error){
+								
+							}
+						});
 						break;
 					case "200":
 						
