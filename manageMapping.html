@@ -1,0 +1,103 @@
+<!doctype html>
+<head>
+  <meta charset="utf-8">
+
+  <title>Mapping Manager - XiaoMorgan</title>
+  
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+  <script type="text/javascript" src="http://www.parsecdn.com/js/parse-1.2.8.min.js"></script>
+  <script type="text/javascript">
+    Parse.initialize("SPiIOPirSjUFKCT9qDqYfYy1KqTR8l1nokw1mScS", "ZJG4G8WJy7ZktSYKz5iRtCEsTTIoVkK2EabYI0j4");
+	var Mapping=Parse.Object.extend("Mapping");
+	var AccountList=Parse.Object.extend("AccountList");
+	
+	//刷新
+	function refreshList(){
+		var q= new Parse.Query(Mapping);
+		
+		q.ascending("keyWords");
+		q.find({
+			success:function(result){
+				document.getElementById("list").innerHTML="Account List<br>";
+				var s="";
+				for(x in result){
+					s+="<tr><td width=\"20\">";
+					s+=x+"</td><td width=\"100\">";
+					s+=result[x].get("keyWords")+"</td><td width=\"100\">";
+					s+=result[x].get("accountRef")+"</td><td width=\"100\">";
+					s+=result[x].id+"</td></tr>";
+				}
+				document.getElementById("list").innerHTML+="<table width=\"100%\" border=\"0\">"+s+"</table>";
+			},
+			error:function(object,error){
+				alert("Load Mapping List failed");
+			}
+		});
+	}
+	
+	//增加
+	function addKeyWords(){
+		var mapping=new Mapping();
+		mapping.set("accountRef",document.getElementById("accRef").value);
+		mapping.set("keyWords",document.getElementById("words").value);
+				
+		mapping.save(null, {
+			success:function(mapping){
+				refreshList();
+				alert("Saving success");
+			},
+			error:function(mapping,error){
+				alert("Saving FAILED");	
+			}
+		});
+	}
+	
+	//删除
+	function deleteRef(){
+		var deletion=new Parse.Query(Mapping);
+		
+		deletion.get(document.getElementById("refId").value,{
+			success:function(del){
+				del.destroy();
+				refreshList();
+			},
+			error:function(del,error){
+				alert("Deletion FAILED");
+			}
+		});
+	}
+  </script>
+  
+</head>
+
+<body onload="refreshList()">
+  
+<table width="807" height="105" border="1">
+  <tr>
+    <td width="483"> <p id="list"></p></td>
+    <td width="308"  ><form name="form" method="post" action="">
+      <label for="words">Key Words</label>
+      <input type="text" name="words" id="words">
+      <br>
+      <label for="accRef">Account Reference</label>
+      <input type="text" name="accRef" id="accRef">
+      <br>
+    </form>
+    <button onClick="addKeyWords()">Add Key Words</button>
+    <br>
+    <form name="deletion" method="post" action="">
+    <label for="refId">Reference ID</label>
+    <input type="text" name="refId" id="refId">
+    <br>
+    </form>
+    <button onClick="deleteRef()">Delete Key Words</button></td>
+  </tr>
+  </table>
+  <script type="text/javascript">
+    	//refreshList();
+	
+	//document.getElementById("demo").innerHTML=s;
+  </script>
+</body>
+
+</html>

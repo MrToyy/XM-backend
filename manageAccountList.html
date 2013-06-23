@@ -1,0 +1,102 @@
+<!doctype html>
+<head>
+  <meta charset="utf-8">
+
+  <title>Account List Manager - XiaoMorgan</title>
+  
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+  <script type="text/javascript" src="http://www.parsecdn.com/js/parse-1.2.8.min.js"></script>
+  <script type="text/javascript">
+    Parse.initialize("SPiIOPirSjUFKCT9qDqYfYy1KqTR8l1nokw1mScS", "ZJG4G8WJy7ZktSYKz5iRtCEsTTIoVkK2EabYI0j4");
+	var AccountList=Parse.Object.extend("AccountList");
+	
+	//刷新
+	function refreshList(){
+		var q= new Parse.Query(AccountList);
+		
+		q.ascending("accountRef");
+		q.find({
+			success:function(result){
+				document.getElementById("list").innerHTML="Account List<br>";
+				var s="";
+				for(x in result){
+					s+="<tr><td width=\"20\">";
+					s+=x+"</td><td width=\"100\">";
+					s+=result[x].get("accountRef")+"</td><td width=\"100\">";
+					s+=result[x].get("accountName")+"</td><td width=\"100\">";
+					s+=result[x].id+"</td></tr>";
+				}
+				document.getElementById("list").innerHTML+="<table width=\"100%\" border=\"0\">"+s+"</table>";
+			},
+			error:function(object,error){
+				alert("Load Account List failed");
+			}
+		});
+	}
+	
+	//增加
+	function addReference(){
+		var accountList=new AccountList();
+		accountList.set("accountRef",document.getElementById("accRef").value);
+		accountList.set("accountName",document.getElementById("accName").value);
+				
+		accountList.save(null, {
+			success:function(accountList){
+				refreshList();
+				alert("Saving success");
+			},
+			error:function(accountList,error){
+				alert("Saving FAILED");	
+			}
+		});
+	}
+	
+	//删除
+	function deleteRef(){
+		var deletion=new Parse.Query(AccountList);
+		
+		deletion.get(document.getElementById("refId").value,{
+			success:function(del){
+				del.destroy();
+				refreshList();
+			},
+			error:function(del,error){
+				alert("Deletion FAILED");
+			}
+		});
+	}
+  </script>
+  
+</head>
+
+<body onLoad="refreshList()">
+  
+<table width="807" height="105" border="1">
+  <tr>
+    <td width="483"> <p id="list"></p></td>
+    <td width="308"  ><form name="form" method="post" action="">
+      <label for="accRef">Account Reference</label>
+      <input type="text" name="accRef" id="accRef">
+      <br>
+      <label for="accName">Account Name</label>
+      <input type="text" name="accName" id="accName">
+      <br>
+    </form>
+    <button onclick="addReference()">Add Reference</button>
+    <br>
+    <form name="deletion" method="post" action="">
+    <label for="refId">Reference ID</label>
+    <input type="text" name="refId" id="refId">
+    <br>
+    </form>
+    <button onClick="deleteRef()">Delete Reference</button></td>
+  </tr>
+  </table>
+  <script type="text/javascript">
+    	//refreshList();
+	
+	//document.getElementById("demo").innerHTML=s;
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,18 @@
+{
+    "applications": {
+        "prod": {
+            "applicationId": "fio4JnXr9trXKLrsdoWX62gKl6duim3Mh98QcAOw", 
+            "masterKey": "3e69F0PFxv7fEhdudILyeJLai8f5KUOenF5Bl4SJ"
+        }, 
+        "dev": {
+            "applicationId": "SPiIOPirSjUFKCT9qDqYfYy1KqTR8l1nokw1mScS", 
+            "masterKey": "tyhXA16m3q9H6bIm3e034kvhjdBciKrhw40PUix4"
+        }, 
+        "_default": {
+            "link": "dev"
+        }
+    }, 
+    "global": {
+        "parseVersion": "1.2.7"
+    }
+}
