@@ -149,16 +149,6 @@
 			userEntry.set("source", source);
 			userEntry.set("description", des);
 			
-			/*f (des.substr(0,1)=="?" || des.substr(0,1)=="？"){//用户指令
-				
-			}else{//用户日记账
-				userEntry.parseDescription();
-				userEntry.generateReply();
-				
-				//var userReport= XMReport.recordEntry(userEntry);
-				//userReport.save();
-				
-			}*/
 			return userEntry;
 		}
 	});
@@ -204,15 +194,41 @@
 	//-----------------------------------------------------------------------------
 	//微信接口
 Parse.Cloud.define("weixinInterface", function(request, response){
-	var uniPass="54grUEk8"
+	var FUser=Parse.Object.extend("FUser");//创建一个虚拟用户类
+	var qUser=new Parse.Query("FUser");
 	
-	var userEntry=XMEntry.newEntry(request.params.content, request.params.source);
+	var Reply=Parse.Object.extend("Reply");
+	var reply=new Reply();
+	
+	qUser.equalTo("userName",request.params.user);
+	qUser.find({
+		success:function(fUser){//已知用户
+			reply.set("msgType","text");
+			reply.set("text","Existing user");
+			reply.save().then(function(reply){
+				response.success(reply);
+			});
+		},
+		error:function(error){//新用户
+			var fUser=new FUser();
+			fUser.set("userName",request.params.user);
+			fUser.set("creatTime",Date()):
+			fUser.save().then(function(fUser){
+				reply.set("msgType","text");
+				reply.set("text","Welcome new user");
+				reply.save().then(function(reply){
+					response.success(reply);
+				});
+			},function(error){
+				response.error(error);
+			});
+		}
+	});
+	/*var userEntry=XMEntry.newEntry(request.params.content, request.params.source);
 	userEntry.generateReply();
 	userEntry.save().then(function(userEntry){
 		response.success( userEntry.get("reply"));
-	},function(error){
-		
-	});
+	});*/
 	/*Parse.User.logIn(request.params.user, uniPass, {//已知用户
 		success: function(user){
 			var reply=newEntry(user, request.params.content, request.params.source);
