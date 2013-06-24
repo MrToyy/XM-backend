@@ -8,9 +8,6 @@
   <script type="text/javascript" src="http://www.parsecdn.com/js/parse-1.2.7.min.js"></script>
   <!--<script type="text/javascript" src="main.js"></script>-->
   <script type="text/javascript">
-	aaa:{
-	var s=123123;
-	}
   </script>
   
 </head>
@@ -20,22 +17,15 @@
   
   
   <script type="text/javascript">
-    /*Parse.initialize("SPiIOPirSjUFKCT9qDqYfYy1KqTR8l1nokw1mScS", "ZJG4G8WJy7ZktSYKz5iRtCEsTTIoVkK2EabYI0j4");
+    Parse.initialize("SPiIOPirSjUFKCT9qDqYfYy1KqTR8l1nokw1mScS", "ZJG4G8WJy7ZktSYKz5iRtCEsTTIoVkK2EabYI0j4");
     	
-	var str="safe你好123";
-	Parse.Cloud.run('searchRef', {string: str}, {
-		success: function(result){
-			document.getElementById("demo").innerHTML=str+"="+result;
-		},
-		error: function(error){
-			for (x in error){
-				document.getElementById("demo").innerHTML=x+"="+error[x]+"<br>";
-			}
+	var Entry=Parse.Object.extend("XMEntry");
+	var entry=new Parse.Query(Entry);
+	entry.find().then(function(entry){
+		for (x in entry){
+			document.getElementById("demo").innerHTML+=x+" - "+entry.get("user")+"<br>";
 		}
-	});*/
-	var s=321;
-	aaa;
-	document.getElementById("demo").innerHTML=s;
+	});
   </script>
 </body>
 
