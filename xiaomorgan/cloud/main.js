@@ -4,22 +4,27 @@
 	//算法：穷举词组匹配mapping表
 	function searchRef(str){
 		str=str+"";
+		var promises=[];
 		var l=str.length;
 		var r="99999";//未定义的暂存科目
-		//var f=false;
 		var Mapping=Parse.Object.extend("Mapping");
 		
 		if (l==1){//str长度为1，用equalTo进行查询
 			var q=new Parse.Query(Mapping);
 			q.equalTo("keyWords",str);
 			console.log("searchRef: keywords= "+str);
-			q.find().then(function(results){
-				if(results.length){
-					return results[0].get("accountRef");
-				}else{
-					return "99999";//未定义的暂存科目
-				}
-			});
+			promises.push(
+				q.find().then(function(results){
+					if(results.length){
+						return results[0].fetch();
+					}else
+						return Parse.Promise.error("Not Found");//未定义的暂存科目
+				}).then(function(result){
+						console.log("searchRef found with: "+result.get("accountRef"));
+						r=result.get("accountRef");
+						return Parse.Promise.as("found");
+				})
+			);
 		}else{//str长度超过1，用最小长度为2的字符串进行startsWith查询，效率较高
 			for (var i=l;i>1;i--){
 				for (var j=0;j<l-i+1;j++){
@@ -27,21 +32,27 @@
 					q.startsWith("keyWords",str.substr(j,i));
 					console.log("searchRef: keywords= "+str.substr(j,i));
 					//q.limit(1);
-					q.find().then(function(results){
-						console.log("searchRef found "+results.length+" results");
-						if(results.length){
-							return results[0].fetch();
-						}else return Parse.Promise.error("Not Found");
-					}).then(function(result){
-						console.log("searchRef found with: "+result.get("accountRef"));
-						r=result.get("accountRef");
-					},function(error){
-						console.log(error);
-					});
+					promises.push(
+						q.find().then(function(results){
+							console.log("searchRef found "+results.length+" results");
+							if(results.length){
+								return results[0].fetch();
+							}else return Parse.Promise.error("Not Found");
+						}).then(function(result){
+							console.log("searchRef found with: "+result.get("accountRef"));
+							r=result.get("accountRef");
+							return Parse.Promise.as("found");
+						},function(error){
+							console.log(error);
+						})
+					);
 				}
 			}
 		}
-		return r;
+		return Parse.Promise.when(promises).then(function(x){
+			console.log("result of "+str+" is "+r);
+			return Parse.Promise.as(r);
+		});
 	}
 	
 	
@@ -50,7 +61,9 @@
 	var XMEntry = Parse.Object.extend("XMEntry",{
 		//instance methods
 		parseDescription: function(){//description为记账命令时调用
-			var des=this.get("description")+"";
+			var self=this;
+			var des=self.get("description")+"";
+			var promisesAll=[];
 			
 			console.log("parDescription: description= "+des);
 			
@@ -58,17 +71,27 @@
 				var desArr=des.split(" ");//用空格拆分
 				if (desArr.length==1){//des没有空格
 					if (isNaN(desArr[0])){//des没有空格且不为数字
-						this.set("returnCode","200");
+						self.set("returnCode","200");
 					}else{//des只有数字，为默认现金支出其他消费
-						this.set("amount",Number(desArr[0]));
-						this.set("debitRef",searchRef("其他"));
-						this.set("creditRef",searchRef("现金"));
+						var promises=[];
+						promises.push(searchRef("其他"));
+						promises.push(searchRef("现金"));
 						
-						this.set("returnCode","100");
-						
-						console.log("parseDescription: descriptioni is a number: "+this.get("amount"));
-						console.log("parseDescription: debitRef: "+this.get("debitRef"));
-						console.log("parseDescription: creditRef: "+this.get("creditRef"));
+						promisesAll.push(
+							Parse.Promise.when(promises).then(function(debitRef, creditRef){
+								self.set("amount",Number(desArr[0]));
+								self.set("debitRef",debitRef);
+								self.set("creditRef",creditRef);
+								
+								self.set("returnCode","100");
+								
+								console.log("parseDescription: descriptioni is a number: "+self.get("amount"));
+								console.log("parseDescription: debitRef: "+self.get("debitRef"));
+								console.log("parseDescription: creditRef: "+self.get("creditRef"));
+								
+								return Parse.Promise.as("done");
+							})
+						);
 					}
 				}else{//des拆分数量多于一个
 					var f=false, debitStr="", creditStr="";
@@ -88,20 +111,23 @@
 					if (f){//找到了数字的情况，查找ref，没有则默认为现金支出其他消费
 						if (debitStr=="") debitStr="其他";
 						if (creditStr=="") creditStr="现金";
-						this.set("amount",am);
-						this.set("debitRef",searchRef(debitStr));
-						this.set("creditRef",searchRef(creditStr));
+						self.set("amount",am);
+						self.set("debitRef",searchRef(debitStr));
+						self.set("creditRef",searchRef(creditStr));
 						
-						this.set("returnCode","100");
+						self.set("returnCode","100");
 						
-						console.log("parseDescription: debit  "+this.get("debitRef")+"; credit = "+this.get("creditRef")+"; amount = "+this.get("amount"));
+						console.log("parseDescription: debit  "+self.get("debitRef")+"; credit = "+self.get("creditRef")+"; amount = "+self.get("amount"));
 					}else{
-						this.set("returnCode","200");
+						self.set("returnCode","200");
 					}
 				}
 			}else{//description为空
 			
 			}
+			return Parse.Promise.when(promisesAll).then(function(x){
+				return Parse.Promise.as(self);
+			});
 		},
 		
 		generateReply: function(){//根据returnCode生成回复
@@ -109,57 +135,74 @@
 			var Reply=Parse.Object.extend("Reply");
 			var reply=new Reply();
 			var self=this;
+			var promises=[];
 			switch (self.get("returnCode")){
 				case "100"://用户输入符合记账规范的情况
 					var tmpStr="";//生成回复字符串
 					var q= new Parse.Query(AccountList);
 					q.equalTo("accountRef",self.get("creditRef"));
 					q.limit(1);
-					q.find().then(function(q){
-						return q[0].fetch();
-					}).then(function(q){
-						tmpStr+=q.get("accountName");
-						console.log("creditName= "+q.get("accountName"));
-					},function(error){
-						console.log("code = "+error.get("code")+"message = "+error.get("message"));
-					});
-					tmpStr+=" 支付 "+self.get("amount")+" 元 ";
-					var q=new Parse.Query(AccountList);
-					q.equalTo("accountRef",self.get("debitRef"));
-					q.limit(1);
-					q.find().then(function(q){
-						return q[0].fetch();
-					}).then(function(q){
-						tmpStr+=q.get("accountName");
-						console.log("debitName= "+q.get("accountName"));
-					});
-					
-					//将回复添加到类中
-					reply.set("msgType","text");
-					reply.set("text","已记录："+tmpStr);
-					reply.save().then(function(reply){
-						self.set("reply",reply);
-					});
-					console.log("reply= "+tmpStr);
+					promises.push(
+						q.find().then(function(q){
+							return q[0].fetch();
+						}).then(function(q){
+							tmpStr+=q.get("accountName");
+							console.log("creditName= "+q.get("accountName"));
+							return Parse.Promise.as("done");
+						}).then(function(x){
+							tmpStr+=" 支付 "+self.get("amount")+" 元 ";
+							var q=new Parse.Query(AccountList);
+							q.equalTo("accountRef",self.get("debitRef"));
+							q.limit(1);
+							return q.find()
+						}).then(function(q){
+							return q[0].fetch();
+						}).then(function(q){
+							tmpStr+=q.get("accountName");
+							console.log("debitName= "+q.get("accountName"));
+							return Parse.Promise.as("done");
+						}).then(function(x){
+							//将回复添加到类中
+							reply.set("msgType","text");
+							reply.set("text","已记录："+tmpStr);
+							return reply.save()
+						}).then(function(reply){
+							self.set("reply",reply);
+							console.log("saved reply= "+tmpStr);
+							return Parse.Promise.as("done");
+						})
+					);
 					break;
 				case "200"://用户输入不符合记账规范的情况
 					//将回复添加到类中
 					reply.set("msgType","text");
 					reply.set("text",self.get("description")+"  我不会聊天。请尝试输入类似\"20 星巴克\"这样的文字来记账。");
-					reply.save().then(function(reply){
-						self.set("reply",reply);
-					});
+					promises.push(
+						reply.save().then(function(reply){
+							self.set("reply",reply);
+							console.log("here save reply");
+							return Parse.Promise.as("done");
+						})
+					);
 					console.log("Return Code= 200；reply= "+reply.get("text"));
 					break;
 				default:
 					reply.set("msgType","text");
 					reply.set("text",self.get("description"));
-					reply.save().then(function(reply){
-						self.set("reply",reply);
-					});
+					promises.push(
+						reply.save().then(function(reply){
+							self.set("reply",reply);
+							return Parse.Promise.as("done");
+						})
+					);
 					console.log("Return Code not set");
 					break;
 			}
+			//console.log(promises[0]);
+			return Parse.Promise.when(promises).then(function(x){
+				console.log("here end generate reply");
+				return Parse.Promise.as(self);
+			});
 		}
 	},{//class methods
 	
@@ -193,15 +236,15 @@ Parse.Cloud.define("weixinInterface", function(request, response){
 			nUser.set("creatTime",Date());
 			return nUser.save();
 		}
-	}).then(function(fUser){//取得并记录用户提交的内容
+	}).then(function(fUser){//取得并记录用户提交的内容，分析用户输入内容
 		var userEntry=new XMEntry();
 		userEntry.set("user", fUser);
 		userEntry.set("source", request.params.source);
 		userEntry.set("description", request.params.content);
-		
-		userEntry.parseDescription();
-		userEntry.generateReply();
-		
+		return userEntry.parseDescription();
+	}).then(function(userEntry){//生成回复内容
+		return userEntry.generateReply();
+	}).then(function(userEntry){//储存
 		return userEntry.save()
 	}).then(function(userEntry){//回复用户
 		response.success(userEntry.get("reply"));
