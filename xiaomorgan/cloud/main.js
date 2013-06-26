@@ -23,6 +23,9 @@
 						console.log("searchRef found with: "+result.get("accountRef"));
 						r=result.get("accountRef");
 						return Parse.Promise.as("found");
+				},function(error){
+					console.log(error);
+					return Parse.Promise.as(error);
 				})
 			);
 		}else{//str长度超过1，用最小长度为2的字符串进行startsWith查询，效率较高
@@ -44,6 +47,7 @@
 							return Parse.Promise.as("found");
 						},function(error){
 							console.log(error);
+							return Parse.Promise.as(error);
 						})
 					);
 				}
@@ -96,28 +100,41 @@
 				}else{//des拆分数量多于一个
 					var f=false, debitStr="", creditStr="";
 					for (var i=0;i<desArr.length;i++){//寻找第一个数字，该数字左边为贷方表述，右边为借方表述
-						if (!isNaN(desArr[i]) || f ){
+						if (isNaN(desArr[i]) || f ){
 							if (f){
-								debitStr=debitStr+desArr[i];
+								debitStr+=desArr[i];
 							}else{
-								creditStr=creditStr+desArr[i];
+								creditStr+=desArr[i];
 							}
 						}else{
 							f=true;
 							var am=Number(desArr[i]);
 						}
-						console.log("parseDescription: desArr["+i+"] = "+desArr[i]);
+						console.log("parseDescription: desArr["+i+"] = "+desArr[i])+" f= "+f;
 					}
 					if (f){//找到了数字的情况，查找ref，没有则默认为现金支出其他消费
-						if (debitStr=="") debitStr="其他";
+						if (debitStr=="") debitStr="其他";//默认值
 						if (creditStr=="") creditStr="现金";
-						self.set("amount",am);
-						self.set("debitRef",searchRef(debitStr));
-						self.set("creditRef",searchRef(creditStr));
 						
-						self.set("returnCode","100");
+						var promises=[];
+						promises.push(searchRef(debitStr));
+						promises.push(searchRef(creditStr));
 						
-						console.log("parseDescription: debit  "+self.get("debitRef")+"; credit = "+self.get("creditRef")+"; amount = "+self.get("amount"));
+						promisesAll.push(
+							Parse.Promise.when(promises).then(function(debitRef, creditRef){
+								self.set("amount",am);
+								self.set("debitRef",debitRef);
+								self.set("creditRef",creditRef);
+								
+								self.set("returnCode","100");
+								
+								console.log("parseDescription: amount: "+self.get("amount"));
+								console.log("parseDescription: debitRef: "+self.get("debitRef"));
+								console.log("parseDescription: creditRef: "+self.get("creditRef"));
+								
+								return Parse.Promise.as("done");
+							})
+						);
 					}else{
 						self.set("returnCode","200");
 					}
