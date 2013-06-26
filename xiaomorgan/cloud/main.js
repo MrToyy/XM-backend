@@ -4,6 +4,7 @@
 	//算法：穷举词组匹配mapping表
 	function searchRef(str){
 		str=str+"";
+		var searchLimit=0;
 		var promises=[];
 		var l=str.length;
 		var r="99999";//未定义的暂存科目
@@ -22,7 +23,7 @@
 				}).then(function(result){
 						console.log("searchRef found with: "+result.get("accountRef"));
 						r=result.get("accountRef");
-						return Parse.Promise.as("found");
+						return Parse.Promise.as("Found");
 				},function(error){
 					console.log(error);
 					return Parse.Promise.as(error);
@@ -31,6 +32,7 @@
 		}else{//str长度超过1，用最小长度为2的字符串进行startsWith查询，效率较高
 			for (var i=l;i>1;i--){
 				for (var j=0;j<l-i+1;j++){
+					if (searchLimit++>20) break;
 					var q=new Parse.Query(Mapping);
 					q.startsWith("keyWords",str.substr(j,i));
 					console.log("searchRef: keywords= "+str.substr(j,i));
@@ -44,7 +46,7 @@
 						}).then(function(result){
 							console.log("searchRef found with: "+result.get("accountRef"));
 							r=result.get("accountRef");
-							return Parse.Promise.as("found");
+							return Parse.Promise.as("Found");
 						},function(error){
 							console.log(error);
 							return Parse.Promise.as(error);
@@ -53,6 +55,7 @@
 				}
 			}
 		}
+		console.log("there are "+promises.length+" queries");
 		return Parse.Promise.when(promises).then(function(x){
 			console.log("result of "+str+" is "+r);
 			return Parse.Promise.as(r);
@@ -71,21 +74,21 @@
 			
 			console.log("parDescription: description= "+des);
 			
-			if (des.length>0){//des不为空
+			if (des.length){//des不为空
 				var desArr=des.split(" ");//用空格拆分
 				if (desArr.length==1){//des没有空格
 					if (isNaN(desArr[0])){//des没有空格且不为数字
 						self.set("returnCode","200");
 					}else{//des只有数字，为默认现金支出其他消费
-						var promises=[];
-						promises.push(searchRef("其他"));
-						promises.push(searchRef("现金"));
+						//var promises=[];
+						//promises.push(searchRef("其他"));
+						//promises.push(searchRef("现金"));
 						
-						promisesAll.push(
-							Parse.Promise.when(promises).then(function(debitRef, creditRef){
+						//promisesAll.push(
+							//Parse.Promise.when(promises).then(function(debitRef, creditRef){
 								self.set("amount",Number(desArr[0]));
-								self.set("debitRef",debitRef);
-								self.set("creditRef",creditRef);
+								self.set("debitRef","59999");
+								self.set("creditRef","10101");
 								
 								self.set("returnCode","100");
 								
@@ -93,9 +96,9 @@
 								console.log("parseDescription: debitRef: "+self.get("debitRef"));
 								console.log("parseDescription: creditRef: "+self.get("creditRef"));
 								
-								return Parse.Promise.as("done");
-							})
-						);
+								promisesAll.push(Parse.Promise.as("done"));
+							//})
+						//);
 					}
 				}else{//des拆分数量多于一个
 					var f=false, debitStr="", creditStr="";
@@ -155,37 +158,39 @@
 			var promises=[];
 			switch (self.get("returnCode")){
 				case "100"://用户输入符合记账规范的情况
-					var tmpStr="";//生成回复字符串
-					var q= new Parse.Query(AccountList);
-					q.equalTo("accountRef",self.get("creditRef"));
-					q.limit(1);
+					var tmpStr="已记录：";//生成回复字符串
+					
+					var pro=[];
+					var q1= new Parse.Query(AccountList);
+					q1.equalTo("accountRef",self.get("creditRef"));
+					q1.limit(1);
+					pro.push(
+						q1.find().then(function(q){
+							return q[0].fetch();
+						})
+					);
+					var q2=new Parse.Query(AccountList);
+					q2.equalTo("accountRef",self.get("debitRef"));
+					q2.limit(1);
+					pro.push(
+						q2.find().then(function(q){
+							return q[0].fetch();
+						})
+					);
+					
 					promises.push(
-						q.find().then(function(q){
-							return q[0].fetch();
-						}).then(function(q){
-							tmpStr+=q.get("accountName");
-							console.log("creditName= "+q.get("accountName"));
-							return Parse.Promise.as("done");
-						}).then(function(x){
+						Parse.Promise.when(pro).then(function(credit, debit){
+							tmpStr+=credit.get("accountName");
 							tmpStr+=" 支付 "+self.get("amount")+" 元 ";
-							var q=new Parse.Query(AccountList);
-							q.equalTo("accountRef",self.get("debitRef"));
-							q.limit(1);
-							return q.find()
-						}).then(function(q){
-							return q[0].fetch();
-						}).then(function(q){
-							tmpStr+=q.get("accountName");
-							console.log("debitName= "+q.get("accountName"));
-							return Parse.Promise.as("done");
-						}).then(function(x){
+							tmpStr+=debit.get("accountName");
+							
 							//将回复添加到类中
 							reply.set("msgType","text");
-							reply.set("text","已记录："+tmpStr);
+							reply.set("text",tmpStr);
 							return reply.save()
 						}).then(function(reply){
 							self.set("reply",reply);
-							console.log("saved reply= "+tmpStr);
+							//console.log("saved reply= "+tmpStr);
 							return Parse.Promise.as("done");
 						})
 					);
@@ -197,7 +202,7 @@
 					promises.push(
 						reply.save().then(function(reply){
 							self.set("reply",reply);
-							console.log("here save reply");
+							//console.log("here save reply");
 							return Parse.Promise.as("done");
 						})
 					);
@@ -212,12 +217,44 @@
 							return Parse.Promise.as("done");
 						})
 					);
-					console.log("Return Code not set");
+					//console.log("Return Code not set");
 					break;
 			}
 			//console.log(promises[0]);
 			return Parse.Promise.when(promises).then(function(x){
-				console.log("here end generate reply");
+				//console.log("here end generate reply");
+				return Parse.Promise.as(self);
+			});
+		},
+		
+		updateReport: function(){//更新报表
+			var qReport=new Parse.Query(XMReport);
+			var self=this;
+			
+			if (self.get("returnCode")!="100") return Parse.Promise.as(self);//如果该输入内容不是记账命令，则跳过本函数
+			
+			qReport.equalTo("date",XMReport.nowMonth(0));
+			qReport.equalTo("user",self.get("user"));
+			
+			return qReport.find().then(function(qReport){
+				if (qReport.length){//返回已存在的报表
+					console.log("Existing report");
+					return qReport[0].fetch();
+				}else{//创建一个新报表
+					var userReport=new XMReport();
+					userReport.set("user",self.get("user"));
+					userReport.set("date",XMReport.nowMonth(0));
+					userReport.set("newMonth",true);
+					console.log("New report with date: "+userReport.get("date"));
+					return Parse.Promise.as(userReport);
+				}
+			}).then(function(userReport){
+				return userReport.recordEntry(self);
+			}).then(function(userReport){
+				return userReport.save();
+			}).then(function(userReport){
+				console.log("Report is saved");
+				self.set("lastActMonth",XMReport.nowMonth(0));
 				return Parse.Promise.as(self);
 			});
 		}
@@ -229,10 +266,81 @@
 	//---------------------------------------------------------------
 	//用户报表类
 	var XMReport = Parse.Object.extend("XMReport",{//instance methods
-	
-	},{//class methods
-		recordEntry: function(entry){//将记录登入报告科目
+		recordEntry:function(entry){//处理用户记录
+			var self=this;
+			console.log("recordEntry is called");
+			return self.inheritBalance(entry.get("lastActMonth")).then(function(message){
+				var debitRef="acc"+entry.get("debitRef");
+				var creditRef="acc"+entry.get("creditRef");
+				self.record(debitRef, entry.get("amount"));
+				self.record(creditRef, -entry.get("amount"));
+				
+				return Parse.Promise.as(self);
+			})
+		},
+		
+		record: function(accountRef, amount){//将金额记录入各相关科目
+			var self=this;
+			console.log("Recording:  "+accountRef+"  :  "+amount);
+			if (isNaN(self.get(accountRef))) {
+				self.set(accountRef, amount);
+			} else {
+				self.set(accountRef, self.get(accountRef)+amount);
+			}//三级科目
 			
+			var secondRef=accountRef.substr(0,6);
+			console.log("Recording:  "+secondRef+"  :  "+amount);
+			if (isNaN(self.get(secondRef))) {
+				self.set(secondRef, amount);
+			} else {
+				self.set(secondRef, self.get(secondRef)+amount);
+			}//二级科目
+			
+			var firstRef=accountRef.substr(0,4);
+			console.log("Recording:  "+firstRef+"  :  "+amount);
+			if (isNaN(self.get(firstRef))) {
+				self.set(firstRef, amount);
+			} else {
+				self.set(firstRef, self.get(firstRef)+amount);
+			}//一级科目
+			console.log(accountRef+"  :  "+amount+" is recorded");
+		},
+		
+		inheritBalance: function(lastActMonth){//从最近一期报表中继承资产和负债余额
+			var self=this;
+			console.log("inheritBalance is called");
+			if (isNaN(lastActMonth)) return Parse.Promise.as("New User");//如果lastActMonth未定义（新用户）则跳出
+			console.log("this is not a new user");
+			if (!self.get("newMonth")) return Parse.Promise.as("Existing Monthly Report");//如果不是新一月报表则跳出
+			console.log("this is a new monthly report");
+			
+			var qReport=new Parse.Query(XMReport);
+			qReport.equalTo("date",self.get("lastActMonth"));
+			qReport.equalTo("user",self.get("user"));
+			
+			return qReport.find().then(function(qReport){//找到最近一期报表
+				return qReport[0].fetch();
+			}).then(function(lastReport){
+				for (x in lastReport){
+					if (Number(x.substr(4,1))<4){//只继承资产负债累科目
+						self[x]=lastReport[x];
+						console.log(x+"   ---   "+self[x]);
+					}
+				}
+				self.set("newReport",false);
+				console.log("New Monthly Report inherited");
+				return Parse.Promise.as("New Monthly Report inherited");
+			});
+		}
+	},{//class methods
+		nowMonth: function(offset){//取得报告的格式日期
+			var d=new Date();
+			var dStr=d.getFullYear()+"";
+			if (d.getMonth()<9) dStr+="0";
+			if (isNaN(offset)) {set=0;} else {set=Number(offset);}
+			dStr+=d.getMonth()+1+set;
+			console.log("nowMonth: "+dStr);
+			return dStr;
 		}
 	});
 	
@@ -240,6 +348,7 @@
 	//-----------------------------------------------------------------------------
 	//微信接口
 Parse.Cloud.define("weixinInterface", function(request, response){
+	console.log("Cloud Function is called");
 	var FUser=Parse.Object.extend("FUser");//创建一个虚拟用户类
 	var qUser=new Parse.Query("FUser");
 	
@@ -249,22 +358,32 @@ Parse.Cloud.define("weixinInterface", function(request, response){
 			return qUser[0].fetch();
 		}else{//新用户*/
 			var nUser=new FUser();
+			var d=new Date();
 			nUser.set("userName",request.params.user);
-			nUser.set("creatTime",Date());
+			nUser.set("creatTime",d);
 			return nUser.save();
 		}
+		
 	}).then(function(fUser){//取得并记录用户提交的内容，分析用户输入内容
 		var userEntry=new XMEntry();
 		userEntry.set("user", fUser);
 		userEntry.set("source", request.params.source);
 		userEntry.set("description", request.params.content);
 		return userEntry.parseDescription();
-	}).then(function(userEntry){//生成回复内容
-		return userEntry.generateReply();
+		
+	}).then(function(userEntry){//记录报表、生成回复，并发
+		var pro=[];
+		pro.push(userEntry.updateReport());
+		pro.push(userEntry.generateReply());
+		return Parse.Promise.when(pro);
+		
 	}).then(function(userEntry){//储存
 		return userEntry.save()
+		
 	}).then(function(userEntry){//回复用户
+		console.log("Cloud Function completed");
 		response.success(userEntry.get("reply"));
+		
 	},function(error){
 		response.error(error);
 	});
