@@ -281,7 +281,19 @@
 		
 		record: function(accountRef, amount){//将金额记录入各相关科目
 			var self=this;
-			console.log("Recording:  "+accountRef+"  :  "+amount);
+			
+			var l=accountRef.length;
+			while (l>3){
+				var ref=accountRef.subStr(0,l);
+				console.log("Recording:  "+ref+"  :  "+amount);
+				if (isNaN(self.get(ref))) {
+					self.set(ref, amount);
+				} else {
+					self.set(ref, self.get(ref)+amount);
+				}
+				l-=2;
+			}
+			/*console.log("Recording:  "+accountRef+"  :  "+amount);
 			if (isNaN(self.get(accountRef))) {
 				self.set(accountRef, amount);
 			} else {
@@ -302,7 +314,7 @@
 				self.set(firstRef, amount);
 			} else {
 				self.set(firstRef, self.get(firstRef)+amount);
-			}//一级科目
+			}//一级科目*/
 			console.log(accountRef+"  :  "+amount+" is recorded");
 		},
 		
