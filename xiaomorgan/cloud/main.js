@@ -346,13 +346,13 @@
 			);
 			
 			return Parse.Promise.when(promises).then(function(lastReport, list){
-				var BS=list.get("BS");
-				console.log("type of BS is "+typeof(BS));
+				var BS=list.get("BS");//只继承资产负责表
+				//console.log("type of BS is "+typeof(BS));
 				for (i in BS){
-					console.log("trying : "+BS[i]);
+					//console.log("trying : "+BS[i]);
 					if (lastReport.has(BS[i])){
 						self.set(BS[i], lastReport.get(BS[i]));
-						console.log("inherited: "+BS[i]+"   ---   "+self.get(BS[i]));
+						//console.log("inherited: "+BS[i]+"   ---   "+self.get(BS[i]));
 					}
 				}
 				console.log("New Monthly Report inherited");
