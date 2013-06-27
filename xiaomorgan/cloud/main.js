@@ -190,7 +190,7 @@
 							return reply.save()
 						}).then(function(reply){
 							self.set("reply",reply);
-							//console.log("saved reply= "+tmpStr);
+							console.log("saved reply= "+tmpStr);
 							return Parse.Promise.as("done");
 						})
 					);
@@ -202,7 +202,7 @@
 					promises.push(
 						reply.save().then(function(reply){
 							self.set("reply",reply);
-							//console.log("here save reply");
+							console.log("here save reply");
 							return Parse.Promise.as("done");
 						})
 					);
@@ -217,12 +217,12 @@
 							return Parse.Promise.as("done");
 						})
 					);
-					//console.log("Return Code not set");
+					console.log("Return Code not set");
 					break;
 			}
 			//console.log(promises[0]);
 			return Parse.Promise.when(promises).then(function(x){
-				//console.log("here end generate reply");
+				console.log("here end generate reply");
 				return Parse.Promise.as(self);
 			});
 		},
@@ -244,7 +244,7 @@
 					var userReport=new XMReport();
 					userReport.set("user",self.get("user"));
 					userReport.set("date",XMReport.nowMonth(0));
-					userReport.set("newMonth",true);
+					//userReport.set("newMonth",true);
 					console.log("New report with date: "+userReport.get("date"));
 					return Parse.Promise.as(userReport);
 				}
@@ -254,8 +254,26 @@
 				return userReport.save();
 			}).then(function(userReport){
 				console.log("Report is saved");
-				self.set("lastActMonth",XMReport.nowMonth(0));
+				return self.setUserLastAction();
+			}).then(function(message){
 				return Parse.Promise.as(self);
+			});
+		},
+		
+		setUserLastAction: function(){
+			var user=this.get("user");
+			return user.fetch().then(function(user){
+				user.set("lastAction",XMReport.nowMonth());
+				return user.save();
+			}).then(function(user){
+				return Parse.Promise.as("last action is set");
+			});
+		},
+		
+		getUserLastAction: function(){
+			var user=this.get("user");
+			return user.fetch().then(function(user){
+				return Parse.Promise.as(user.get("lastAction"));
 			});
 		}
 	},{//class methods
@@ -269,7 +287,9 @@
 		recordEntry:function(entry){//处理用户记录
 			var self=this;
 			console.log("recordEntry is called");
-			return self.inheritBalance(entry.get("lastActMonth")).then(function(message){
+			return entry.getUserLastAction().then(function(lastAction){
+				return self.inheritBalance(lastAction);
+			}).then(function(message){
 				var debitRef="acc"+entry.get("debitRef");
 				var creditRef="acc"+entry.get("creditRef");
 				self.record(debitRef, entry.get("amount"));
@@ -283,8 +303,9 @@
 			var self=this;
 			
 			var l=accountRef.length;
+			//console.log("l= "+l+" ;  accountRef is a "+typeof(accountRef));
 			while (l>3){
-				var ref=accountRef.subStr(0,l);
+				var ref=accountRef.substr(0,l);
 				console.log("Recording:  "+ref+"  :  "+amount);
 				if (isNaN(self.get(ref))) {
 					self.set(ref, amount);
@@ -293,53 +314,32 @@
 				}
 				l-=2;
 			}
-			/*console.log("Recording:  "+accountRef+"  :  "+amount);
-			if (isNaN(self.get(accountRef))) {
-				self.set(accountRef, amount);
-			} else {
-				self.set(accountRef, self.get(accountRef)+amount);
-			}//三级科目
 			
-			var secondRef=accountRef.substr(0,6);
-			console.log("Recording:  "+secondRef+"  :  "+amount);
-			if (isNaN(self.get(secondRef))) {
-				self.set(secondRef, amount);
-			} else {
-				self.set(secondRef, self.get(secondRef)+amount);
-			}//二级科目
-			
-			var firstRef=accountRef.substr(0,4);
-			console.log("Recording:  "+firstRef+"  :  "+amount);
-			if (isNaN(self.get(firstRef))) {
-				self.set(firstRef, amount);
-			} else {
-				self.set(firstRef, self.get(firstRef)+amount);
-			}//一级科目*/
 			console.log(accountRef+"  :  "+amount+" is recorded");
 		},
 		
-		inheritBalance: function(lastActMonth){//从最近一期报表中继承资产和负债余额
+		inheritBalance: function(lastAction){//从最近一期报表中继承资产和负债余额
 			var self=this;
 			console.log("inheritBalance is called");
-			if (isNaN(lastActMonth)) return Parse.Promise.as("New User");//如果lastActMonth未定义（新用户）则跳出
+			if (isNaN(lastAction)) return Parse.Promise.as("New User");//如果lastActMonth未定义（新用户）则跳出
 			console.log("this is not a new user");
-			if (!self.get("newMonth")) return Parse.Promise.as("Existing Monthly Report");//如果不是新一月报表则跳出
+			if (lastAction==XMReport.nowMonth(0)) return Parse.Promise.as("Existing Monthly Report");//如果不是新一月报表则跳出
 			console.log("this is a new monthly report");
 			
 			var qReport=new Parse.Query(XMReport);
-			qReport.equalTo("date",self.get("lastActMonth"));
+			qReport.equalTo("date",lastAction);
 			qReport.equalTo("user",self.get("user"));
 			
 			return qReport.find().then(function(qReport){//找到最近一期报表
 				return qReport[0].fetch();
 			}).then(function(lastReport){
 				for (x in lastReport){
-					if (Number(x.substr(4,1))<4){//只继承资产负债累科目
+					if (x.length>4 && Number(x.substr(3,1))<4){//只继承资产负债累科目
 						self[x]=lastReport[x];
 						console.log(x+"   ---   "+self[x]);
 					}
 				}
-				self.set("newReport",false);
+				//self.set("newReport",false);
 				console.log("New Monthly Report inherited");
 				return Parse.Promise.as("New Monthly Report inherited");
 			});
@@ -351,7 +351,7 @@
 			if (d.getMonth()<9) dStr+="0";
 			if (isNaN(offset)) {set=0;} else {set=Number(offset);}
 			dStr+=d.getMonth()+1+set;
-			console.log("nowMonth: "+dStr);
+			//console.log("nowMonth: "+dStr);
 			return dStr;
 		}
 	});
