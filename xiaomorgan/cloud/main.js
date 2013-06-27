@@ -340,20 +340,19 @@
 			var List=Parse.Object.extend("List");//取得科目清单
 			var qList=new Parse.Query(List);
 			promises.push(
-				qList.get("gVSpt8VtWY").then(function(list){
+				qList.get("HTmdZZX20E").then(function(list){
 					return list.fetch();
-				}).then(function(list){
-					return Parse.Promise.as(list.get("BS"));
 				})
 			);
 			
-			return Parse.Promise.when(promises).then(function(lastReport, accList){
-				console.log("type of accList is "+typeof(accList));
-				for (i in accList){
-					console.log("trying : "+accList[i]);
-					if (lastReport.has(accList[i])){
-						self.set(accList[i], lastReport.get(accList[i]));
-						console.log("inherited: "+accList[i]+"   ---   "+self.get(accList[i]));
+			return Parse.Promise.when(promises).then(function(lastReport, list){
+				var BS=list.get("BS");
+				console.log("type of BS is "+typeof(BS));
+				for (i in BS){
+					console.log("trying : "+BS[i]);
+					if (lastReport.has(BS[i])){
+						self.set(BS[i], lastReport.get(BS[i]));
+						console.log("inherited: "+BS[i]+"   ---   "+self.get(BS[i]));
 					}
 				}
 				console.log("New Monthly Report inherited");

@@ -64,66 +64,65 @@
   
   <script type="text/javascript">
     Parse.initialize("SPiIOPirSjUFKCT9qDqYfYy1KqTR8l1nokw1mScS", "ZJG4G8WJy7ZktSYKz5iRtCEsTTIoVkK2EabYI0j4");
-    var BS=new Array();
-	var PL=new Array();
-	var assets=new Array();
-	var liabilities=new Array();
-	var reserves=new Array();
-	var income=new Array();
-	var expense=new Array();
-
+		var List=Parse.Object.extend("List");
+		var list=new List();
+		var qList=new Parse.Query(List);
+		qList.get("HTmdZZX20E").then(function(list){
+			var BS=list.get("BS");
+			//document.getElementById("demo").innerHTML+="type of BS is : "+typeof(BS);
+			for (i in BS) document.getElementById("demo").innerHTML+=typeof(BS[i])+" : "+BS[i]+"<br>";
+		});
   function categorize(accList){
 	  return accList.fetch().then(function(accList){
 		var acc="acc"+accList.get("accountRef");
 		var ca=Number(acc.substr(3,1));
+		var pro=[];
 		if (ca==1){
-			assets.push(acc);
-			BS.push(acc);
+			list.addUnique("assets",acc);
+			list.addUnique("BS",acc);
 		}
 		if (ca==2){
-			liabilities.push(acc);
-			BS.push(acc);
+			list.addUnique("liabilities",acc);
+			list.addUnique("BS",acc);
 		}
 		if (ca==3){
-			reserves.push(acc);
-			BS.push(acc);
+			list.addUnique("reserves",acc);
+			list.addUnique("BS",acc);
 		}
 		if (ca==4){
-			income.push(acc);
-			PL.push(acc);
+			list.addUnique("income",acc);
+			list.addUnique("PL",acc);
 		}
 		if (ca==5){
-			expense.push(acc);
-			PL.push(acc);
+			list.addUnique("expense",acc);
+			list.addUnique("PL",acc);
 		}
-		document.getElementById("demo").innerHTML+=BS+"<br>"
+		//document.getElementById("demo").innerHTML+=BS+"<br>"
 		return Parse.Promise.as("done");
 	  });
   }
-	
-	var promises=[];
-	
-	var AccountList=Parse.Object.extend("AccountList");
+		
+	/*var AccountList=Parse.Object.extend("AccountList");
 	var qList= new Parse.Query(AccountList);
 	qList.find().then(function(qList){
 		for(i in qList){
-			promises.push(categorize(qList[i]));
+			categorize(qList[i]);
 		}
-	});
+	});*/
 	
 	function saveList(){
-		document.getElementById("demo").innerHTML+="!!!!!"+BS+"<br>";
 
-		var List=Parse.Object.extend("List");
-		var list=new List();
-		list.addUnique("assets",assets);
-		list.addUnique("liabilities",liabilities);
-		list.addUnique("reserves",reserves);
-		list.addUnique("BS",BS);
-		list.addUnique("income",income);
-		list.addUnique("expense",expense);
-		list.addUnique("PL",PL);
-		list.save();
+		/*for (i in asserts) list.addUnique("assets",assets[i]);
+		for (i in liabilities) list.addUnique("liabilities",liabilities[i]);
+		for (i in reserves) list.addUnique("reserves",reserves[i]);
+		for (i in BS) list.addUnique("BS",BS[i]);
+		for (i in income) list.addUnique("income",income[i]);
+		for (i in expense) list.addUnique("expense",expense[i]);
+		for (i in PL) list.addUnique("PL",PL[i]);*/
+		list.save().then(function(list){
+			document.getElementById("demo").innerHTML+="!!!!!"+list.get("BS")+"<br>";
+			
+		});
 	}
 	
   </script>
