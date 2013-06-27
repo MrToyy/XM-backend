@@ -39,6 +39,8 @@
 		var accountList=new AccountList();
 		accountList.set("accountRef",document.getElementById("accRef").value);
 		accountList.set("accountName",document.getElementById("accName").value);
+		
+		addList();
 				
 		accountList.save(null, {
 			success:function(accountList){
@@ -65,6 +67,39 @@
 			}
 		});
 	}
+	
+  function addList(){
+	var List=Parse.Object.extend("List");
+	var list=new Parse.Query(List);
+	list.get("gVSpt8VtWY").then(function(list){
+		return list.fetch()
+	}).then(function(list){
+		var acc="acc"+document.getElementById("accRef").value;
+		var ca=Number(acc.substr(3,1));
+		if (ca==1){
+			list.addUnique("assets",acc);
+			list.addUnique("BS",acc);
+		}
+		if (ca==2){
+			list.addUnique("liabilities",acc);
+			list.addUnique("BS",acc);
+		}
+		if (ca==3){
+			list.addUnique("reserves",acc);
+			list.addUnique("BS",acc);
+		}
+		if (ca==4){
+			list.addUnique("income",acc);
+			list.addUnique("PL",acc);
+		}
+		if (ca==5){
+			list.addUnique("expense",acc);
+			list.addUnique("PL",acc);
+		}
+		list.save();
+	});
+
+  }
   </script>
   
 </head>
@@ -82,7 +117,7 @@
       <input type="text" name="accName" id="accName">
       <br>
     </form>
-    <button onclick="addReference()">Add Reference</button>
+    <button onClick="addReference()">Add Reference</button>
     <br>
     <form name="deletion" method="post" action="">
     <label for="refId">Reference ID</label>

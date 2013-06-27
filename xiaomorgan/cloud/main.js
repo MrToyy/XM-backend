@@ -244,7 +244,6 @@
 					var userReport=new XMReport();
 					userReport.set("user",self.get("user"));
 					userReport.set("date",XMReport.nowMonth(0));
-					//userReport.set("newMonth",true);
 					console.log("New report with date: "+userReport.get("date"));
 					return Parse.Promise.as(userReport);
 				}
@@ -320,6 +319,8 @@
 		
 		inheritBalance: function(lastAction){//从最近一期报表中继承资产和负债余额
 			var self=this;
+			var promises=[];
+			
 			console.log("inheritBalance is called");
 			if (isNaN(lastAction)) return Parse.Promise.as("New User");//如果lastActMonth未定义（新用户）则跳出
 			console.log("this is not a new user");
@@ -327,19 +328,34 @@
 			console.log("this is a new monthly report");
 			
 			var qReport=new Parse.Query(XMReport);
+			//console.log("last action = "+lastAction);
 			qReport.equalTo("date",lastAction);
 			qReport.equalTo("user",self.get("user"));
+			promises.push(
+				qReport.find().then(function(qReport){//找到最近一期报表
+					return qReport[0].fetch();
+				})
+			);
 			
-			return qReport.find().then(function(qReport){//找到最近一期报表
-				return qReport[0].fetch();
-			}).then(function(lastReport){
-				for (x in lastReport){
-					if (x.length>4 && Number(x.substr(3,1))<4){//只继承资产负债累科目
-						self[x]=lastReport[x];
-						console.log(x+"   ---   "+self[x]);
+			var List=Parse.Object.extend("List");//取得科目清单
+			var qList=new Parse.Query(List);
+			promises.push(
+				qList.get("gVSpt8VtWY").then(function(list){
+					return list.fetch();
+				}).then(function(list){
+					return Parse.Promise.as(list.get("BS"));
+				})
+			);
+			
+			return Parse.Promise.when(promises).then(function(lastReport, accList){
+				console.log("type of accList is "+typeof(accList));
+				for (i in accList){
+					console.log("trying : "+accList[i]);
+					if (lastReport.has(accList[i])){
+						self.set(accList[i], lastReport.get(accList[i]));
+						console.log("inherited: "+accList[i]+"   ---   "+self.get(accList[i]));
 					}
 				}
-				//self.set("newReport",false);
 				console.log("New Monthly Report inherited");
 				return Parse.Promise.as("New Monthly Report inherited");
 			});

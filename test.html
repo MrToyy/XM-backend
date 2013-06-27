@@ -5,9 +5,55 @@
   <title>XiaoMorgan Class</title>
   
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
-  <script type="text/javascript" src="http://www.parsecdn.com/js/parse-1.2.7.min.js"></script>
+  <script type="text/javascript" src="http://www.parsecdn.com/js/parse-1.2.8.min.js"></script>
   <!--<script type="text/javascript" src="main.js"></script>-->
   <script type="text/javascript">
+
+  function add(accList){
+	var promises=[];
+	
+	var List=Parse.Object.extend("List");
+	var list=new Parse.Query(List);
+	promises.push(
+		list.get("g8FJgQdEkv").then(function(list){
+			return list.fetch()
+		})
+	);
+	
+	promises.push(accList.fetch());
+	
+	Parse.Promise.when(promises).then(function(list, accList){
+		var acc="acc"+accList.get("accountRef");
+		document.getElementById("demo").innerHTML+=acc+"<br>";
+		var ca=Number(acc.substr(3,1));
+		if (ca==1){
+			list.addUnique("assets",acc);
+			list.addUnique("BS",acc);
+		}
+		if (ca==2){
+			list.addUnique("liabilities",acc);
+			list.addUnique("BS",acc);
+		}
+		if (ca==3){
+			list.addUnique("reserves",acc);
+			list.addUnique("BS",acc);
+		}
+		if (ca==4){
+			list.addUnique("income",acc);
+			list.addUnique("PL",acc);
+		}
+		if (ca==5){
+			list.addUnique("expense",acc);
+			list.addUnique("PL",acc);
+		}
+		return Parse.Promise.as(list);
+	}).then(function(list){
+		document.getElementById("demo").innerHTML+="saving "+acc+"<br>";
+		list.save();
+	});
+
+  }
+  
   </script>
   
 </head>
@@ -18,14 +64,70 @@
   
   <script type="text/javascript">
     Parse.initialize("SPiIOPirSjUFKCT9qDqYfYy1KqTR8l1nokw1mScS", "ZJG4G8WJy7ZktSYKz5iRtCEsTTIoVkK2EabYI0j4");
-    
-	var TestObject=Parse.Object.extend("TestObject");
-	var testObject=new TestObject();
-	testObject.set("acc"+10101,200);
-	testObject.save().then(function(t){
-		document.getElementById("demo").innerHTML+="-->"+(t.get("acc")="")+"<--";
+    var BS=new Array();
+	var PL=new Array();
+	var assets=new Array();
+	var liabilities=new Array();
+	var reserves=new Array();
+	var income=new Array();
+	var expense=new Array();
+
+  function categorize(accList){
+	  return accList.fetch().then(function(accList){
+		var acc="acc"+accList.get("accountRef");
+		var ca=Number(acc.substr(3,1));
+		if (ca==1){
+			assets.push(acc);
+			BS.push(acc);
+		}
+		if (ca==2){
+			liabilities.push(acc);
+			BS.push(acc);
+		}
+		if (ca==3){
+			reserves.push(acc);
+			BS.push(acc);
+		}
+		if (ca==4){
+			income.push(acc);
+			PL.push(acc);
+		}
+		if (ca==5){
+			expense.push(acc);
+			PL.push(acc);
+		}
+		document.getElementById("demo").innerHTML+=BS+"<br>"
+		return Parse.Promise.as("done");
+	  });
+  }
+	
+	var promises=[];
+	
+	var AccountList=Parse.Object.extend("AccountList");
+	var qList= new Parse.Query(AccountList);
+	qList.find().then(function(qList){
+		for(i in qList){
+			promises.push(categorize(qList[i]));
+		}
 	});
+	
+	function saveList(){
+		document.getElementById("demo").innerHTML+="!!!!!"+BS+"<br>";
+
+		var List=Parse.Object.extend("List");
+		var list=new List();
+		list.addUnique("assets",assets);
+		list.addUnique("liabilities",liabilities);
+		list.addUnique("reserves",reserves);
+		list.addUnique("BS",BS);
+		list.addUnique("income",income);
+		list.addUnique("expense",expense);
+		list.addUnique("PL",PL);
+		list.save();
+	}
+	
   </script>
+  <button onClick="saveList()">save list</button>
 </body>
 
 </html>
