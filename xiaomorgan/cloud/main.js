@@ -9,11 +9,13 @@
 		var l=str.length;
 		var r="99999";//未定义的暂存科目
 		var Mapping=Parse.Object.extend("Mapping");
+		var SearchConflict=Parse.Object.extend("SearchConflict");
+		var searchConflict=new SearchConflict();
 		
 		if (l==1){//str长度为1，用equalTo进行查询
 			var q=new Parse.Query(Mapping);
 			q.equalTo("keyWords",str);
-			console.log("searchRef: keywords= "+str);
+			//console.log("searchRef: keywords= "+str);
 			promises.push(
 				q.find().then(function(results){
 					if(results.length){
@@ -21,11 +23,11 @@
 					}else
 						return Parse.Promise.error("Not Found");//未定义的暂存科目
 				}).then(function(result){
-						console.log("searchRef found with: "+result.get("accountRef"));
+						//console.log("searchRef found with: "+result.get("accountRef"));
 						r=result.get("accountRef");
 						return Parse.Promise.as("Found");
 				},function(error){
-					console.log(error);
+					//console.log(error);
 					return Parse.Promise.as(error);
 				})
 			);
@@ -35,29 +37,30 @@
 					if (searchLimit++>20) break;
 					var q=new Parse.Query(Mapping);
 					q.startsWith("keyWords",str.substr(j,i));
-					console.log("searchRef: keywords= "+str.substr(j,i));
+					//console.log("searchRef: keywords= "+str.substr(j,i));
 					//q.limit(1);
 					promises.push(
 						q.find().then(function(results){
-							console.log("searchRef found "+results.length+" results");
+							//console.log("searchRef found "+results.length+" results");
+							if(results.length>1) {searchConflict.set("string",str); searchConflict.save();}
 							if(results.length){
 								return results[0].fetch();
 							}else return Parse.Promise.error("Not Found");
 						}).then(function(result){
-							console.log("searchRef found with: "+result.get("accountRef"));
+							//console.log("searchRef found with: "+result.get("accountRef"));
 							r=result.get("accountRef");
 							return Parse.Promise.as("Found");
 						},function(error){
-							console.log(error);
+							//console.log(error);
 							return Parse.Promise.as(error);
 						})
 					);
 				}
 			}
 		}
-		console.log("there are "+promises.length+" queries");
+		//console.log("there are "+promises.length+" queries");
 		return Parse.Promise.when(promises).then(function(x){
-			console.log("result of "+str+" is "+r);
+			//console.log("result of "+str+" is "+r);
 			return Parse.Promise.as(r);
 		});
 	}
@@ -72,7 +75,7 @@
 			var des=self.get("description")+"";
 			var promisesAll=[];
 			
-			console.log("parDescription: description= "+des);
+			//console.log("parDescription: description= "+des);
 			
 			if (des.length){//des不为空
 				var desArr=des.split(" ");//用空格拆分
@@ -92,9 +95,9 @@
 								
 								self.set("returnCode","100");
 								
-								console.log("parseDescription: descriptioni is a number: "+self.get("amount"));
-								console.log("parseDescription: debitRef: "+self.get("debitRef"));
-								console.log("parseDescription: creditRef: "+self.get("creditRef"));
+								//console.log("parseDescription: descriptioni is a number: "+self.get("amount"));
+								//console.log("parseDescription: debitRef: "+self.get("debitRef"));
+								//console.log("parseDescription: creditRef: "+self.get("creditRef"));
 								
 								promisesAll.push(Parse.Promise.as("done"));
 							//})
@@ -113,7 +116,7 @@
 							f=true;
 							var am=Number(desArr[i]);
 						}
-						console.log("parseDescription: desArr["+i+"] = "+desArr[i])+" f= "+f;
+						//console.log("parseDescription: desArr["+i+"] = "+desArr[i])+" f= "+f;
 					}
 					if (f){//找到了数字的情况，查找ref，没有则默认为现金支出其他消费
 						if (debitStr=="") debitStr="其他";//默认值
@@ -131,14 +134,14 @@
 								
 								self.set("returnCode","100");
 								
-								console.log("parseDescription: amount: "+self.get("amount"));
-								console.log("parseDescription: debitRef: "+self.get("debitRef"));
-								console.log("parseDescription: creditRef: "+self.get("creditRef"));
+								//console.log("parseDescription: amount: "+self.get("amount"));
+								//console.log("parseDescription: debitRef: "+self.get("debitRef"));
+								//console.log("parseDescription: creditRef: "+self.get("creditRef"));
 								
 								return Parse.Promise.as("done");
 							})
 						);
-					}else{
+					}else{//description没有找到数字
 						self.set("returnCode","200");
 					}
 				}
@@ -190,7 +193,7 @@
 							return reply.save()
 						}).then(function(reply){
 							self.set("reply",reply);
-							console.log("saved reply= "+tmpStr);
+							//console.log("saved reply= "+tmpStr);
 							return Parse.Promise.as("done");
 						})
 					);
@@ -202,11 +205,11 @@
 					promises.push(
 						reply.save().then(function(reply){
 							self.set("reply",reply);
-							console.log("here save reply");
+							//console.log("here save reply");
 							return Parse.Promise.as("done");
 						})
 					);
-					console.log("Return Code= 200；reply= "+reply.get("text"));
+					//console.log("Return Code= 200；reply= "+reply.get("text"));
 					break;
 				default:
 					reply.set("msgType","text");
@@ -217,12 +220,12 @@
 							return Parse.Promise.as("done");
 						})
 					);
-					console.log("Return Code not set");
+					//console.log("Return Code not set");
 					break;
 			}
 			//console.log(promises[0]);
 			return Parse.Promise.when(promises).then(function(x){
-				console.log("here end generate reply");
+				//console.log("here end generate reply");
 				return Parse.Promise.as(self);
 			});
 		},
@@ -238,13 +241,13 @@
 			
 			return qReport.find().then(function(qReport){
 				if (qReport.length){//返回已存在的报表
-					console.log("Existing report");
+					//console.log("Existing report");
 					return qReport[0].fetch();
 				}else{//创建一个新报表
 					var userReport=new XMReport();
 					userReport.set("user",self.get("user"));
 					userReport.set("date",XMReport.nowMonth(0));
-					console.log("New report with date: "+userReport.get("date"));
+					//console.log("New report with date: "+userReport.get("date"));
 					return Parse.Promise.as(userReport);
 				}
 			}).then(function(userReport){
@@ -252,7 +255,7 @@
 			}).then(function(userReport){
 				return userReport.save();
 			}).then(function(userReport){
-				console.log("Report is saved");
+				//console.log("Report is saved");
 				return self.setUserLastAction();
 			}).then(function(message){
 				return Parse.Promise.as(self);
@@ -285,7 +288,7 @@
 	var XMReport = Parse.Object.extend("XMReport",{//instance methods
 		recordEntry:function(entry){//处理用户记录
 			var self=this;
-			console.log("recordEntry is called");
+			//console.log("recordEntry is called");
 			return entry.getUserLastAction().then(function(lastAction){
 				return self.inheritBalance(lastAction);
 			}).then(function(message){
@@ -305,7 +308,7 @@
 			//console.log("l= "+l+" ;  accountRef is a "+typeof(accountRef));
 			while (l>3){
 				var ref=accountRef.substr(0,l);
-				console.log("Recording:  "+ref+"  :  "+amount);
+				//console.log("Recording:  "+ref+"  :  "+amount);
 				if (isNaN(self.get(ref))) {
 					self.set(ref, amount);
 				} else {
@@ -314,18 +317,18 @@
 				l-=2;
 			}
 			
-			console.log(accountRef+"  :  "+amount+" is recorded");
+			//console.log(accountRef+"  :  "+amount+" is recorded");
 		},
 		
 		inheritBalance: function(lastAction){//从最近一期报表中继承资产和负债余额
 			var self=this;
 			var promises=[];
 			
-			console.log("inheritBalance is called");
+			//console.log("inheritBalance is called");
 			if (isNaN(lastAction)) return Parse.Promise.as("New User");//如果lastActMonth未定义（新用户）则跳出
-			console.log("this is not a new user");
+			//console.log("this is not a new user");
 			if (lastAction==XMReport.nowMonth(0)) return Parse.Promise.as("Existing Monthly Report");//如果不是新一月报表则跳出
-			console.log("this is a new monthly report");
+			//console.log("this is a new monthly report");
 			
 			var qReport=new Parse.Query(XMReport);
 			//console.log("last action = "+lastAction);
@@ -355,7 +358,7 @@
 						//console.log("inherited: "+BS[i]+"   ---   "+self.get(BS[i]));
 					}
 				}
-				console.log("New Monthly Report inherited");
+				//console.log("New Monthly Report inherited");
 				return Parse.Promise.as("New Monthly Report inherited");
 			});
 		}

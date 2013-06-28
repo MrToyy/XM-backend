@@ -76,25 +76,38 @@
 	}).then(function(list){
 		var acc="acc"+document.getElementById("accRef").value;
 		var ca=Number(acc.substr(3,1));
-		if (ca==1){
-			list.addUnique("assets",acc);
-			list.addUnique("BS",acc);
+		switch (ca){
+			case 1:
+				list.addUnique("assets",acc);
+				list.addUnique("BS",acc);
+				break;
+			case 2:
+				list.addUnique("liabilities",acc);
+				list.addUnique("BS",acc);
+				break;
+			case 3:
+				list.addUnique("reserves",acc);
+				list.addUnique("BS",acc);
+				break;
+			case 4:
+				list.addUnique("income",acc);
+				list.addUnique("PL",acc);
+				break;
+			case 5:
+				list.addUnique("expense",acc);
+				list.addUnique("PL",acc);
+				break;
+			default:
+				
+				break;
 		}
-		if (ca==2){
-			list.addUnique("liabilities",acc);
-			list.addUnique("BS",acc);
-		}
-		if (ca==3){
-			list.addUnique("reserves",acc);
-			list.addUnique("BS",acc);
-		}
-		if (ca==4){
-			list.addUnique("income",acc);
-			list.addUnique("PL",acc);
-		}
-		if (ca==5){
-			list.addUnique("expense",acc);
-			list.addUnique("PL",acc);
+		
+		var l=acc.length;
+		if (l>5){
+			var superAccount=acc.substr(0,l-2);
+			var thisAccount=acc;
+			//document.getElementById("list").innerHTML+="super = "+superAccount+" ; this = "+thisAccount;
+			list.addUnique(superAccount,thisAccount);
 		}
 		list.save();
 	});
@@ -127,6 +140,7 @@
     <button onClick="deleteRef()">Delete Reference</button></td>
   </tr>
   </table>
+  <p id="log"></p>
   <script type="text/javascript">
     	//refreshList();
 	

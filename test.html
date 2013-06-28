@@ -9,13 +9,13 @@
   <!--<script type="text/javascript" src="main.js"></script>-->
   <script type="text/javascript">
 
-  function add(accList){
+  /*function add(accList){
 	var promises=[];
 	
 	var List=Parse.Object.extend("List");
 	var list=new Parse.Query(List);
 	promises.push(
-		list.get("g8FJgQdEkv").then(function(list){
+		list.get("HTmdZZX20E").then(function(list){
 			return list.fetch()
 		})
 	);
@@ -52,7 +52,7 @@
 		list.save();
 	});
 
-  }
+  }*/
   
   </script>
   
@@ -67,48 +67,33 @@
 		var List=Parse.Object.extend("List");
 		var list=new List();
 		var qList=new Parse.Query(List);
-		qList.get("HTmdZZX20E").then(function(list){
-			var BS=list.get("BS");
-			//document.getElementById("demo").innerHTML+="type of BS is : "+typeof(BS);
-			for (i in BS) document.getElementById("demo").innerHTML+=typeof(BS[i])+" : "+BS[i]+"<br>";
+		qList.get("HTmdZZX20E").then(function(qList){
+			qList.fetch();
+			list=qList;
 		});
   function categorize(accList){
-	  return accList.fetch().then(function(accList){
-		var acc="acc"+accList.get("accountRef");
-		var ca=Number(acc.substr(3,1));
-		var pro=[];
-		if (ca==1){
-			list.addUnique("assets",acc);
-			list.addUnique("BS",acc);
+	  accList.fetch().then(function(accList){
+		var thisAccount="acc"+accList.get("accountRef");
+		var superAccount="";
+		if (thisAccount.length>5){
+			superAccount=thisAccount.substr(0,thisAccount.length-2);
+			list.addUnique(superAccount,thisAccount);
 		}
-		if (ca==2){
-			list.addUnique("liabilities",acc);
-			list.addUnique("BS",acc);
-		}
-		if (ca==3){
-			list.addUnique("reserves",acc);
-			list.addUnique("BS",acc);
-		}
-		if (ca==4){
-			list.addUnique("income",acc);
-			list.addUnique("PL",acc);
-		}
-		if (ca==5){
-			list.addUnique("expense",acc);
-			list.addUnique("PL",acc);
-		}
-		//document.getElementById("demo").innerHTML+=BS+"<br>"
-		return Parse.Promise.as("done");
+		document.getElementById("demo").innerHTML+=superAccount+" <-- "+thisAccount+"<br>";
+		//return Parse.Promise.as("done");
 	  });
   }
 		
-	/*var AccountList=Parse.Object.extend("AccountList");
-	var qList= new Parse.Query(AccountList);
-	qList.find().then(function(qList){
-		for(i in qList){
-			categorize(qList[i]);
+function doit(){
+	document.getElementById("demo").innerHTML+="list is a List? "+(list instanceof List)+"<br>";
+	var AccountList=Parse.Object.extend("AccountList");
+	var qAccList= new Parse.Query(AccountList);
+	qAccList.find().then(function(qAccList){
+		for(i in qAccList){
+			categorize(qAccList[i]);
 		}
-	});*/
+	});
+}
 	
 	function saveList(){
 
@@ -120,12 +105,13 @@
 		for (i in expense) list.addUnique("expense",expense[i]);
 		for (i in PL) list.addUnique("PL",PL[i]);*/
 		list.save().then(function(list){
-			document.getElementById("demo").innerHTML+="!!!!!"+list.get("BS")+"<br>";
+			document.getElementById("demo").innerHTML+="done";
 			
 		});
 	}
 	
   </script>
+  <button onClick="doit()">do it</button>
   <button onClick="saveList()">save list</button>
 </body>
 
