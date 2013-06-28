@@ -81,7 +81,7 @@
 				var desArr=des.split(" ");//用空格拆分
 				if (desArr.length==1){//des没有空格
 					if (isNaN(desArr[0])){//des没有空格且不为数字
-						self.set("returnCode","200");
+						promisesAll.push(self.parseCommand());
 					}else{//des只有数字，为默认现金支出其他消费
 						//var promises=[];
 						//promises.push(searchRef("其他"));
@@ -142,13 +142,75 @@
 							})
 						);
 					}else{//description没有找到数字
-						self.set("returnCode","200");
+						promisesAll.push(self.parseCommand());
 					}
 				}
 			}else{//description为空
 			
 			}
 			return Parse.Promise.when(promisesAll).then(function(x){
+				return Parse.Promise.as(self);
+			});
+		},
+		
+		parseCommand: function(){//分析并执行命令
+			console.log("parseCommand is called");
+			var self=this;
+			var des=self.get("description")+"";
+			var cmdStr="not defined";
+			var pro=[];
+			self.set("returnCode","290");
+			
+			if (des.substr(0,1)=="?" || des.substr(0,1)=="？"){
+				if (des.length==1){
+					self.set("returnCode","210");
+					console.log("help");
+					return Parse.Promise.as(self);
+				}
+				var cmd=des.substr(1);
+				console.log("command is : "+cmd);
+				switch(cmd){
+					case "收支":
+						cmdStr="incomeStatement";
+						break;
+					case "资产":
+						cmdStr="balanceSheet";
+						break;
+					default:
+						var AccountList=Parse.Object.extend("AccountList");
+						var qAccList=new Parse.Query(AccountList);
+						qAccList.equalTo("accountName",cmd);
+						qAccList.ascending("accountRef");
+						pro.push(
+							qAccList.find().then(function(qAccList){
+								if (qAccList.length>1){
+									return qAccList[0].fetch();
+								}else{
+									return Parse.Promise.error("not found");
+								}
+							}).then(function(accList){
+								cmdStr=accList.get("accountRef");
+								if (cmdStr.length>3) cmdStr="not defined";
+								return Parse.Promise.as("found");
+							},function(error){
+								return Parse.Promise.as(error);
+							})
+						);
+						break;
+				}
+				pro.push(Parse.Promise.as("command"));
+			}else{//非命令
+				console.log(des+" is not a command");
+				self.set("returnCode","900");
+				pro.push(Parse.Promise.as("not set"));
+			}
+			return Parse.Promise.when(pro).then(function(message){
+				console.log("command string is : "+cmdStr);
+				if (cmdStr!="not defined"){//生成报表
+					self.set("reportRef","acc"+cmdStr);
+					self.set("returnCode","200");
+					console.log("report reference is set with : "+self.get("reportRef"));
+				}
 				return Parse.Promise.as(self);
 			});
 		},
@@ -198,10 +260,37 @@
 						})
 					);
 					break;
-				case "200"://用户输入不符合记账规范的情况
+				case "200"://用户输入为报表查询的情况
+					
+					break;
+				case "210"://帮助信息
 					//将回复添加到类中
 					reply.set("msgType","text");
-					reply.set("text",self.get("description")+"  我不会聊天。请尝试输入类似\"20 星巴克\"这样的文字来记账。");
+					reply.set("text","帮助信息");
+					promises.push(
+						reply.save().then(function(reply){
+							self.set("reply",reply);
+							//console.log("here save reply");
+							return Parse.Promise.as("done");
+						})
+					);
+					break;
+				case "290"://不能识别的命令
+					//将回复添加到类中
+					reply.set("msgType","text");
+					reply.set("text","抱歉！没能理解您的意思。请回复“？”获取帮助。");
+					promises.push(
+						reply.save().then(function(reply){
+							self.set("reply",reply);
+							//console.log("here save reply");
+							return Parse.Promise.as("done");
+						})
+					);
+					break;
+				case "900"://用户输入为不能识别的情况
+					//将回复添加到类中
+					reply.set("msgType","text");
+					reply.set("text",self.get("description")+"  抱歉！我不会聊天。请尝试输入类似\"20 星巴克\"这样的文字来记账。");
 					promises.push(
 						reply.save().then(function(reply){
 							self.set("reply",reply);
