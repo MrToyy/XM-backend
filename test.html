@@ -74,12 +74,12 @@
   function categorize(accList){
 	  accList.fetch().then(function(accList){
 		var thisAccount="acc"+accList.get("accountRef");
-		var superAccount="";
-		if (thisAccount.length>5){
-			superAccount=thisAccount.substr(0,thisAccount.length-2);
+		var superAccount="incomeStatement";
+		if (thisAccount.length<8 && Number(thisAccount.substr(3,1))>3){
+			//superAccount=thisAccount.substr(0,thisAccount.length-2);
 			list.addUnique(superAccount,thisAccount);
+			document.getElementById("demo").innerHTML+=superAccount+" <-- "+thisAccount+"<br>";
 		}
-		document.getElementById("demo").innerHTML+=superAccount+" <-- "+thisAccount+"<br>";
 		//return Parse.Promise.as("done");
 	  });
   }
@@ -108,6 +108,29 @@ function doit(){
 			document.getElementById("demo").innerHTML+="done";
 			
 		});
+	}
+	
+	function getExpenseRef(){
+						var AccountList=Parse.Object.extend("AccountList");
+						var qAccList=new Parse.Query(AccountList);
+						var cmd="支出";
+						qAccList.startsWith("accountName",cmd);
+						qAccList.ascending("accountRef");
+							qAccList.find().then(function(qAccList){
+								if (qAccList.length>0){
+									document.getElementById("demo").innerHTML+=("found account with : "+cmd);
+									return qAccList[0].fetch();
+								}else{
+									document.getElementById("demo").innerHTML+=(cmd+" : not found");
+									return Parse.Promise.error("not found");
+								}
+							}).then(function(accList){
+								cmdStr=accList.get("accountRef");
+								if (cmdStr.length>3) cmdStr="not defined";
+								return Parse.Promise.as("found");
+							},function(error){
+								return Parse.Promise.as(error);
+							});
 	}
 	
   </script>

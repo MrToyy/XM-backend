@@ -154,7 +154,7 @@
 		},
 		
 		parseCommand: function(){//分析并执行命令
-			console.log("parseCommand is called");
+			//console.log("parseCommand is called");
 			var self=this;
 			var des=self.get("description")+"";
 			var cmdStr="not defined";
@@ -162,13 +162,13 @@
 			self.set("returnCode","290");
 			
 			if (des.substr(0,1)=="?" || des.substr(0,1)=="？"){
-				if (des.length==1){
+				if (des.length==1){//查询帮助
 					self.set("returnCode","210");
-					console.log("help");
+					//console.log("help");
 					return Parse.Promise.as(self);
 				}
 				var cmd=des.substr(1);
-				console.log("command is : "+cmd);
+				//console.log("command is : "+cmd);
 				switch(cmd){
 					case "收支":
 						cmdStr="incomeStatement";
@@ -177,20 +177,22 @@
 						cmdStr="balanceSheet";
 						break;
 					default:
-						var AccountList=Parse.Object.extend("AccountList");
+						//var AccountList=Parse.Object.extend("AccountList");
 						var qAccList=new Parse.Query(AccountList);
 						qAccList.equalTo("accountName",cmd);
 						qAccList.ascending("accountRef");
 						pro.push(
 							qAccList.find().then(function(qAccList){
-								if (qAccList.length>1){
+								if (qAccList.length>0){
+									//console.log("found account with : "+cmd);
 									return qAccList[0].fetch();
 								}else{
+									//console.log(cmd+" : not found");
 									return Parse.Promise.error("not found");
 								}
 							}).then(function(accList){
-								cmdStr=accList.get("accountRef");
-								if (cmdStr.length>3) cmdStr="not defined";
+								cmdStr="acc"+accList.get("accountRef");
+								if (cmdStr.length>6) cmdStr="not defined";
 								return Parse.Promise.as("found");
 							},function(error){
 								return Parse.Promise.as(error);
@@ -200,23 +202,23 @@
 				}
 				pro.push(Parse.Promise.as("command"));
 			}else{//非命令
-				console.log(des+" is not a command");
+				//console.log(des+" is not a command");
 				self.set("returnCode","900");
 				pro.push(Parse.Promise.as("not set"));
 			}
 			return Parse.Promise.when(pro).then(function(message){
-				console.log("command string is : "+cmdStr);
+				//console.log("command string is : "+cmdStr);
 				if (cmdStr!="not defined"){//生成报表
-					self.set("reportRef","acc"+cmdStr);
+					self.set("reportRef",cmdStr);
 					self.set("returnCode","200");
-					console.log("report reference is set with : "+self.get("reportRef"));
+					//console.log("report reference is set with : "+self.get("reportRef"));
 				}
 				return Parse.Promise.as(self);
 			});
 		},
 		
 		generateReply: function(){//根据returnCode生成回复
-			var AccountList=Parse.Object.extend("AccountList");
+			//var AccountList=Parse.Object.extend("AccountList");
 			var Reply=Parse.Object.extend("Reply");
 			var reply=new Reply();
 			var self=this;
@@ -256,12 +258,24 @@
 						}).then(function(reply){
 							self.set("reply",reply);
 							//console.log("saved reply= "+tmpStr);
-							return Parse.Promise.as("done");
+							return Parse.Promise.as("new entry");
 						})
 					);
 					break;
 				case "200"://用户输入为报表查询的情况
-					
+					//console.log("generating report");
+					promises.push(
+						XMReport.getReport(self).then(function(report){
+							//console.log("generating reply.  report is a "+typeof(report));
+							reply.set("msgType","report");
+							reply.set("report",report);
+							return reply.save();
+						}).then(function(reply){
+							self.set("reply",reply);
+							//console.log("report is set");
+							return Parse.Promise.as("got report");
+						})
+					);
 					break;
 				case "210"://帮助信息
 					//将回复添加到类中
@@ -271,7 +285,18 @@
 						reply.save().then(function(reply){
 							self.set("reply",reply);
 							//console.log("here save reply");
-							return Parse.Promise.as("done");
+							return Parse.Promise.as("help");
+						})
+					);
+					break;
+				case "220"://没有查询到报表到情况
+					reply.set("msgType","text");
+					reply.set("text","还没有这个报表哟");
+					promises.push(
+						reply.save().then(function(reply){
+							self.set("reply",reply);
+							//console.log("report is set to not found");
+							return Parse.Promise.as("report not found");
 						})
 					);
 					break;
@@ -283,7 +308,7 @@
 						reply.save().then(function(reply){
 							self.set("reply",reply);
 							//console.log("here save reply");
-							return Parse.Promise.as("done");
+							return Parse.Promise.as("command not found");
 						})
 					);
 					break;
@@ -295,7 +320,7 @@
 						reply.save().then(function(reply){
 							self.set("reply",reply);
 							//console.log("here save reply");
-							return Parse.Promise.as("done");
+							return Parse.Promise.as("not defined usage");
 						})
 					);
 					//console.log("Return Code= 200；reply= "+reply.get("text"));
@@ -306,7 +331,7 @@
 					promises.push(
 						reply.save().then(function(reply){
 							self.set("reply",reply);
-							return Parse.Promise.as("done");
+							return Parse.Promise.as("not defined return code");
 						})
 					);
 					//console.log("Return Code not set");
@@ -354,7 +379,7 @@
 		setUserLastAction: function(){
 			var user=this.get("user");
 			return user.fetch().then(function(user){
-				user.set("lastAction",XMReport.nowMonth());
+				user.set("lastAction",XMReport.nowMonth(0));
 				return user.save();
 			}).then(function(user){
 				return Parse.Promise.as("last action is set");
@@ -460,9 +485,111 @@
 			dStr+=d.getMonth()+1+set;
 			//console.log("nowMonth: "+dStr);
 			return dStr;
+		},
+		
+		getReport: function(entry){
+			//console.log("getReport is called");
+			var user=entry.get("user");
+			var reportRef=entry.get("reportRef");
+			var promises=[];
+			var report=[];
+			var FUser=Parse.Object.extend("FUser");
+			
+			//取得最近一期报表
+			var qReport=new Parse.Query(XMReport);
+			promises.push(
+				entry.getUserLastAction().then(function(lastAction){
+					qReport.equalTo("user",user);
+					qReport.equalTo("date",lastAction);
+					//console.log((user instanceof FUser)+"    "+lastAction);
+					return qReport.find();
+				}).then(function(qReport){
+					if (qReport.length>0){
+						//console.log("report fetched");
+						return qReport[0].fetch();
+					}else{
+						//console.log("report not found");
+						return Parse.Promise.error("report not found");
+					}
+				},function(error){
+					//console.log(error);
+					return Parse.Promise.as(error);
+				})
+			);
+			
+			//取得报表种类清单
+			var List=Parse.Object.extend("List");
+			var qList=new Parse.Query(List);
+			promises.push(
+				qList.get("HTmdZZX20E").then(function(qList){
+					//console.log("list fetched");
+					return qList.fetch();
+				})
+			);
+			
+			//生成需要的报表
+			return Parse.Promise.when(promises).then(function(userReport, list){
+				ref=list.get(reportRef);
+				//console.log("report ref is : "+reportRef);
+				var pro=[];
+				for (i in ref){
+					//console.log("trying : "+ref[i]);
+					if (userReport.has(ref[i])) {
+						//console.log("getting ref : "+ref[i]);
+						pro.push(
+							ReportAccount.setReportAccount(ref[i].substr(3),userReport.get(ref[i])).then(function(reportAccount){
+								report.push(reportAccount);
+								//console.log("got : "+reportAccount.get("accountName")+" - "+reportAccount.get("amount"));
+								return Parse.Promise.as("done");
+							})
+						);
+					}
+				}
+				return Parse.Promise.when(pro);
+			}).then(function(message){
+				//console.log(typeof(report)+" % report : "+report);
+				return Parse.Promise.as(report);
+			},function(error){
+				entry.set("returnCode","220");
+				//console.log("report is not found");
+				return Parse.Promise.as(error);
+			});
 		}
 	});
 	
+	
+	//-----------------------------------------------------------------------------
+	//科目类
+	var AccountList=Parse.Object.extend("AccountList",{//instance method
+	},{//class method
+		getAccountNameByRef: function(ref){
+			var qAccList=new Parse.Query(AccountList);
+			qAccList.equalTo("accountRef",ref);
+			return qAccList.find().then(function(qAccList){
+				return qAccList[0].fetch();
+			}).then(function(accList){
+				return Parse.Promise.as(accList.get("accountName"));
+			});
+		}
+	});
+	
+	
+	//-----------------------------------------------------------------------------
+	//报表内容类
+	var ReportAccount=Parse.Object.extend("ReportAccount",{//instance method
+		
+	},{//class method
+		setReportAccount: function(ref, amount){
+			var reportAccount=new ReportAccount();
+			return AccountList.getAccountNameByRef(ref).then(function(accountName){
+				reportAccount.set("accountRef","acc"+ref);
+				reportAccount.set("accountName",accountName);
+				reportAccount.set("amount",amount);
+				return reportAccount.save();
+			})
+		}
+	});
+
 	
 	//-----------------------------------------------------------------------------
 	//微信接口
