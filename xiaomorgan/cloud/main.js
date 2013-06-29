@@ -632,3 +632,65 @@ Parse.Cloud.define("weixinInterface", function(request, response){
 	});
 
 });
+
+
+//--------------------------------------------------------
+//增加mapping后，修改userEntry及userReport
+Parse.Cloud.define("refreshEntry", function(request, response){
+	var preDebitRef="";
+	var preCreditRef="";
+	var preAmount=0;
+	
+	var qDebit= new Parse.Query(XMEntry);
+	qDebit.equalTo("debitRef","99999");
+	var qCredit=new Parse.Query(XMEntry);
+	qCredit.equalTo("creditRef","99999");
+	var qUserEntry=Parse.Query.or(qDebit, qCredit);
+	
+	qUserEntry.find().then(function(qUserEntry){
+		var promises=[];
+		for (i in qUserEntry){
+			promises.push(updateEntryAndReport(qUserEntry[i]));
+		}
+		return Parse.Promise.when(promises);
+	}).then(function(messages){
+		response.success("done");
+	});
+});
+
+function updateEntryAndReport(userEntry){
+	var preDebitRef="";
+	var nowDebitRef="";
+	var preCreditRef="";
+	var nowCreditRef="";
+	var preAmount=0;
+	
+	return userEntry.fetch().then(function(userEntry){
+		preDebitRef=userEntry.get("debitRef");
+		preCreditRef=userEntry.get("creditRef")
+		preAmount=userEntry.get("amount");
+		//重新parseDescription
+		return userEntry.parseDescription();
+	}).then(function(userEntry){
+		nowDebitRef=userEntry.get("debitRef");
+		nowCreditRef=userEntry.get("creditRef");
+		if (preDebitRef==nowDebitRef && preCreditRef==nowCreditRef){//如果没有变化则跳出
+			return Parse.Promise.error("not modified");
+		}
+		//冲销报表中的原记录
+		userEntry.set("amount", -preAmount);
+		userEntry.set("debitRef",preDebitRef);
+		userEntry.set("creditRef",preCreditRef);
+		return userEntry.updateReport();
+	}).then(function(userEntry){
+		//以新ref记录进报表中
+		userEntry.set("amount", preAmount);
+		userEntry.set("debitRef",nowDebitRef);
+		userEntry.set("creditRef",nowCreditRef);
+		return userEntry.updateReport();
+	}).then(function(userEntry){
+		return userEntry.save();
+	},function(error){
+		return Parse.Promise.as(error);
+	});
+}

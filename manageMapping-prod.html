@@ -2,7 +2,7 @@
 <head>
   <meta charset="utf-8">
 
-  <title>Mapping Manager - XiaoMorgan</title>
+  <title>Mapping Manager (prod)- XiaoMorgan</title>
   
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
   <script type="text/javascript" src="http://www.parsecdn.com/js/parse-1.2.8.min.js"></script>
@@ -48,7 +48,7 @@
 				
 		mapping.save().then(function(mapping){
 				//更新userEntry
-				return Parse.Cloud.run("refreshEntry",{id : userEntry.id})
+				return Parse.Cloud.run("refreshEntry",{})
 		}).then(function(result){
 				refreshList();
 				alert("Saving success");
