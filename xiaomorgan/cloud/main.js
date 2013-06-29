@@ -78,10 +78,12 @@
 			//console.log("parDescription: description= "+des);
 			
 			if (des.length){//des不为空
+				if (des.substr(0,1)=="?" || des.substr(0,1)=="？"){return self.parseCommand();}//跳转至parseCommand
 				var desArr=des.split(" ");//用空格拆分
 				if (desArr.length==1){//des没有空格
 					if (isNaN(desArr[0])){//des没有空格且不为数字
-						promisesAll.push(self.parseCommand());
+						self.set("returnCode", "900");
+						promisesAll.push(Parse.Promise.as("not a entry"));
 					}else{//des只有数字，为默认现金支出其他消费
 						//var promises=[];
 						//promises.push(searchRef("其他"));
@@ -142,7 +144,8 @@
 							})
 						);
 					}else{//description没有找到数字
-						promisesAll.push(self.parseCommand());
+						self.set("returnCode", "900");
+						promisesAll.push(Parse.Promise.as("not a entry"));
 					}
 				}
 			}else{//description为空
@@ -161,7 +164,6 @@
 			var pro=[];
 			self.set("returnCode","290");
 			
-			if (des.substr(0,1)=="?" || des.substr(0,1)=="？"){
 				if (des.length==1){//查询帮助
 					self.set("returnCode","210");
 					//console.log("help");
@@ -201,11 +203,6 @@
 						break;
 				}
 				pro.push(Parse.Promise.as("command"));
-			}else{//非命令
-				//console.log(des+" is not a command");
-				self.set("returnCode","900");
-				pro.push(Parse.Promise.as("not set"));
-			}
 			return Parse.Promise.when(pro).then(function(message){
 				//console.log("command string is : "+cmdStr);
 				if (cmdStr!="not defined"){//生成报表
@@ -279,8 +276,8 @@
 					break;
 				case "210"://帮助信息
 					//将回复添加到类中
-					reply.set("msgType","text");
-					reply.set("text","帮助信息");
+					reply.set("msgType","help");
+					reply.set("help","帮助信息");
 					promises.push(
 						reply.save().then(function(reply){
 							self.set("reply",reply);
