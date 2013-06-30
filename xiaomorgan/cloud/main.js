@@ -42,7 +42,7 @@
 					promises.push(
 						q.find().then(function(results){
 							//console.log("searchRef found "+results.length+" results");
-							if(results.length>1) {searchConflict.set("string",str); searchConflict.save();}
+							if(results.length>1) {searchConflict.set("string",str); searchConflict.save();}//记录搜索结果超过1个的关键字
 							if(results.length){
 								return results[0].fetch();
 							}else return Parse.Promise.error("Not Found");
@@ -484,7 +484,7 @@
 			return dStr;
 		},
 		
-		getReport: function(entry){
+		getReport: function(entry){//生成回复用的报表
 			//console.log("getReport is called");
 			var user=entry.get("user");
 			var reportRef=entry.get("reportRef");

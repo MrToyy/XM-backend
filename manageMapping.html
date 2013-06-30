@@ -48,7 +48,7 @@
 				
 		mapping.save().then(function(mapping){
 				//更新userEntry
-				return Parse.Cloud.run("refreshEntry",{id : userEntry.id})
+				return Parse.Cloud.run("refreshEntry",{})
 		}).then(function(result){
 				refreshList();
 				alert("Saving success");
