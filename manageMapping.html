@@ -26,8 +26,7 @@
 		//qDebit.find().then(function(qUserEntry){
 				userEntry=qUserEntry[0];
 				document.getElementById("list").innerHTML="Unresolved List<br>";
-				document.getElementById("list").innerHTML+="<tr><td width=\"20\">No.</td><td width=\"100\">Description</td><td width=\"100\">Debit Ref</td><td width=\"100\">CreditRef</td></tr>";
-				var s="";
+				var s="<tr><td width=\"20\">No.</td><td width=\"100\">Description</td><td width=\"100\">Debit Ref</td><td width=\"100\">CreditRef</td></tr>";
 				for(x in qUserEntry){
 					s+="<tr><td width=\"20\">";
 					s+=x+"</td><td width=\"100\">";
