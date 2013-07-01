@@ -609,6 +609,13 @@
 						);
 					}
 				}
+				pro.push(
+					ReportAccount.setReportAccount("99999",userReport.get("acc99999")).then(function(reportAccount){
+						report.push(reportAccount);
+						//console.log("got : "+reportAccount.get("accountName")+" - "+reportAccount.get("amount"));
+						return Parse.Promise.as("done");
+					})
+				);
 				return Parse.Promise.when(pro);
 			},function(error){
 				pro.push(
