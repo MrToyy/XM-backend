@@ -65,6 +65,8 @@
 		});
 	}
 	
+	//自定义trim函数
+	String.prototype.Trim=function(){return this.replace(/(^\s*)|(\s*$)/g,"");}
 	
 	//--------------------------------------------------------------------------
 	//用户记录类
@@ -80,6 +82,7 @@
 			if (des.length){//des不为空
 				if (des.substr(0,1)=="?" || des.substr(0,1)=="？"){return self.parseCommand();}//跳转至parseCommand
 				var desArr=des.split(" ");//用空格拆分
+				for (i in desArr) desArr[i]=desArr[i].Trim();
 				if (desArr.length==1){//des没有空格
 					if (isNaN(desArr[0])){//des没有空格且不为数字
 						self.set("returnCode", "900");
@@ -108,17 +111,19 @@
 				}else{//des拆分数量多于一个
 					var f=false, debitStr="", creditStr="";
 					for (var i=0;i<desArr.length;i++){//寻找第一个数字，该数字左边为贷方表述，右边为借方表述
-						if (isNaN(desArr[i]) || f ){
-							if (f){
-								debitStr+=desArr[i];
+						if (desArr[i]!=""){	
+							if (isNaN(desArr[i]) || f ){
+								if (f){
+									debitStr+=desArr[i];
+								}else{
+									creditStr+=desArr[i];
+								}
 							}else{
-								creditStr+=desArr[i];
+								f=true;
+								var am=Number(desArr[i]);
 							}
-						}else{
-							f=true;
-							var am=Number(desArr[i]);
 						}
-						//console.log("parseDescription: desArr["+i+"] = "+desArr[i])+" f= "+f;
+						//console.log("parseDescription: desArr["+i+"] = >"+desArr[i]+"< f= "+f);
 					}
 					if (f){//找到了数字的情况，查找ref，没有则默认为现金支出其他消费
 						if (debitStr=="") debitStr="其他";//默认值
@@ -170,7 +175,8 @@
 					return Parse.Promise.as(self);
 				}
 				var cmd=des.substr(1);
-				//console.log("command is : "+cmd);
+				cmd=cmd.Trim();
+				//console.log("command is : >"+cmd+"<");
 				switch(cmd){
 					case "收支":
 						cmdStr="incomeStatement";
