@@ -162,7 +162,7 @@
 		},
 		
 		parseCommand: function(){//分析并执行命令
-			//console.log("parseCommand is called");
+			console.log("parseCommand is called");
 			var self=this;
 			var des=self.get("description")+"";
 			var cmdStr="not defined";
@@ -176,8 +176,13 @@
 				}
 				var cmd=des.substr(1);
 				cmd=cmd.Trim();
-				//console.log("command is : >"+cmd+"<");
+				console.log("command is : >"+cmd+"<");
 				switch(cmd){
+					//以下操作命令
+					case "删除":
+						cmsStr="delete";
+						break;
+					//以下为报表查询命令
 					case "收支":
 						cmdStr="incomeStatement";
 						break;
@@ -210,11 +215,19 @@
 				}
 				pro.push(Parse.Promise.as("command"));
 			return Parse.Promise.when(pro).then(function(message){
-				//console.log("command string is : "+cmdStr);
-				if (cmdStr!="not defined"){//生成报表
-					self.set("reportRef",cmdStr);
-					self.set("returnCode","200");
-					//console.log("report reference is set with : "+self.get("reportRef"));
+				console.log("command string is : "+cmdStr);
+				switch(cmdStr){
+					case "delete":
+						self.set("returnCode","230");
+						break;
+					case "not defined":
+						self.set("returnCode","290");
+						break;
+					default://生成报表
+						self.set("reportRef",cmdStr);
+						self.set("returnCode","200");
+						//console.log("report reference is set with : "+self.get("reportRef"));
+						break;
 				}
 				return Parse.Promise.as(self);
 			});
@@ -248,11 +261,13 @@
 						})
 					);
 					
+					pro.push(self.setUserLastEntry(self.id));
+					
 					promises.push(
 						Parse.Promise.when(pro).then(function(credit, debit){
 							tmpStr+=credit.get("accountName");
-							tmpStr+=" 支付 "+self.get("amount")+" 元 ";
-							tmpStr+=debit.get("accountName");
+							tmpStr+=" -> "+debit.get("accountName");
+							tmpStr+=" "+self.get("amount")+" 元 ";
 							
 							//将回复添加到类中
 							reply.set("msgType","text");
@@ -292,7 +307,7 @@
 						})
 					);
 					break;
-				case "220"://没有查询到报表到情况
+				case "220"://没有查询到报表的情况
 					reply.set("msgType","text");
 					reply.set("text","还没有这个报表哟");
 					promises.push(
@@ -300,6 +315,24 @@
 							self.set("reply",reply);
 							//console.log("report is set to not found");
 							return Parse.Promise.as("report not found");
+						})
+					);
+					break;
+				case "230"://删除上一条记录
+					console.log("deleting last entry");
+					reply.set("msgType","text");
+					promises.push(
+						XMEntry.deleteLastEntry(self.get("user")).then(function(lastDescription){
+							console.log("generating reply, last description is : "+lastDescription);
+							reply.set("text","已删除上条记录："+lastDescription);
+							return reply.save();
+						},function(error){
+							console.log("generating reply, last description deletion failed with : "+error);
+							reply.set("text","未能删除上条记录，原因是："+error);
+						}).then(function(reply){
+							self.set("reply",reply);
+							console.log("report is set");
+							return Parse.Promise.as("last entry deleted");
 						})
 					);
 					break;
@@ -394,9 +427,42 @@
 			return user.fetch().then(function(user){
 				return Parse.Promise.as(user.get("lastAction"));
 			});
+		},
+		
+		setUserLastEntry: function(entryId){
+			console.log("setting user last entry");
+			var user=this.get("user");
+			return user.fetch().then(function(user){
+				console.log("entry id is : "+entryId);
+				user.set("lastEntry",entryId);
+				return user.save();
+			}).then(function(user){
+				console.log("user last entry is set");
+				return Parse.Promise.as("last entry is set");
+			});
 		}
 	},{//class methods
-	
+		deleteLastEntry: function(user){
+			console.log("deleteLastEntry is called");
+			var lastDescription="";
+			return user.fetch().then(function(user){
+				var lastEntryId=user.get("lastEntry");
+				var qUserEntry=new Parse.Query(XMEntry);
+				return qUserEntry.get(lastEntryId);
+			}).then(function(qUserEntry){
+				if (qUserEntry>0){
+					return qUserEntry[0].fetch();
+				}else{
+					return Parse.Promise.error("原上条记录已经删除，不能删除更早的记录。");
+				}
+			}).then(function(userEntry){
+				lastDescription=userEntry.get("description");
+				return userEntry.destroy();
+			}).then(function(userEntry){
+				console.log("deletion done. last description is : "+lastDescription);
+				return Parse.Promise.as(lastDescription);
+			});
+		}
 	});
 	
     
@@ -618,6 +684,9 @@ Parse.Cloud.define("weixinInterface", function(request, response){
 		userEntry.set("user", fUser);
 		userEntry.set("source", request.params.source);
 		userEntry.set("description", request.params.content);
+		userEntry.set("date",XMReport.nowMonth(0));
+		return userEntry.save();
+	}).then(function(userEntry){
 		return userEntry.parseDescription();
 		
 	}).then(function(userEntry){//记录报表、生成回复，并发
