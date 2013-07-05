@@ -11,6 +11,7 @@
 		var Mapping=Parse.Object.extend("Mapping");
 		var SearchConflict=Parse.Object.extend("SearchConflict");
 		var searchConflict=new SearchConflict();
+		var found=false;
 		
 		if (l==1){//str长度为1，用equalTo进行查询
 			var q=new Parse.Query(Mapping);
@@ -48,7 +49,10 @@
 							}else return Parse.Promise.error("Not Found");
 						}).then(function(result){
 							//console.log("searchRef found with: "+result.get("accountRef"));
-							r=result.get("accountRef");
+							if (!found) {
+								found=true;
+								r=result.get("accountRef");
+							}
 							return Parse.Promise.as("Found");
 						},function(error){
 							//console.log(error);
