@@ -259,6 +259,7 @@
 							tmpStr+=credit.get("accountName");
 							tmpStr+=" -> "+debit.get("accountName");
 							tmpStr+=" "+self.get("amount")+" 元 ";
+							tmpStr+="("+self.get("description")+")";
 							
 							//将回复添加到类中
 							reply.set("msgType","text");
