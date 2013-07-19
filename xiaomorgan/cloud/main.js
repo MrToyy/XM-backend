@@ -255,7 +255,7 @@
 					pro.push(self.setUserLastEntry(self.id));
 					
 					promises.push(
-						Parse.Promise.when(pro).then(function(credit, debit){
+						Parse.Promise.when(pro).then(function(credit, debit, message){
 							tmpStr+=credit.get("accountName");
 							tmpStr+=" -> "+debit.get("accountName");
 							tmpStr+=" "+self.get("amount")+" 元 ";
@@ -275,7 +275,7 @@
 				case "200"://用户输入为报表查询的情况
 					//console.log("generating report");
 					promises.push(
-						XMReport.getReport(self).then(function(report){
+						XMReport.getReport(self, self.get("user")).then(function(report){
 							//console.log("generating reply.  report is a "+typeof(report));
 							reply.set("msgType","report");
 							reply.set("report",report);
@@ -418,7 +418,7 @@
 					lastDescription=userEntry.get("description");
 					preAmount=userEntry.get("amount");
 					userEntry.set("amount",-preAmount);
-					return userEntry.updateReport();
+					return XMReport.updateReport(userEntry, user);
 				}else{
 					return Parse.Promise.error("already deleted");
 				}
@@ -524,40 +524,58 @@
 			return dStr;
 		},
 		
-		updateReport: function(entry){//更新报表
+		updateReport: function(entry, user){//更新报表
 			var qReport=new Parse.Query(XMReport);
+			var promises=[];
+			//var user=entry.get("user");
 			
 			if (entry.get("returnCode")!="100") return Parse.Promise.as(entry);//如果该输入内容不是记账命令，则跳过本函数
 			
 			qReport.equalTo("date",XMReport.nowMonth(0));
-			qReport.equalTo("user",entry.get("user"));
+			qReport.equalTo("user",user);
 			
-			return qReport.find().then(function(qReport){
-				if (qReport.length){//返回已存在的报表
-					//console.log("Existing report");
-					return qReport[0].fetch();
-				}else{//创建一个新报表
-					var userReport=new XMReport();
-					userReport.set("user",entry.get("user"));
-					userReport.set("date",XMReport.nowMonth(0));
-					//console.log("New report with date: "+userReport.get("date"));
-					return Parse.Promise.as(userReport);
-				}
-			}).then(function(userReport){
-				return userReport.recordEntry(entry);
-			}).then(function(userReport){
-				return userReport.save();
-			}).then(function(userReport){
-				//console.log("Report is saved");
-				return entry.setUserLastAction();
-			}).then(function(message){
+			promises.push(
+				qReport.find().then(function(qReport){
+					if (qReport.length){//返回已存在的报表
+						//console.log("Existing report");
+						return qReport[0].fetch();
+					}else{//创建一个新报表
+						var userReport=new XMReport();
+						userReport.set("user",user);
+						userReport.set("date",XMReport.nowMonth(0));
+						//console.log("New report with date: "+userReport.get("date"));
+						return Parse.Promise.as(userReport);
+					}
+				}).then(function(userReport){
+					return userReport.recordEntry(entry);
+				}).then(function(userReport){
+					return userReport.save();
+				}).then(function(userReport){
+					//console.log("Report is saved");
+					return entry.setUserLastAction();
+				})
+			);
+			
+			promises.push(
+				user.fetch().then(function(user){
+					var fatherUser=user.get("fatherUser");
+					if (user==fatherUser){
+						return Parse.Promise.as("no father user");
+					}else{
+						return XMReport.updateReport(entry, fatherUser);
+					}
+				})
+			);
+			
+			Parse.Promise.when(promises).then(function(message){
+				console.log("finished updating report");
 				return Parse.Promise.as(entry);
 			});
 		},
 		
-		getReport: function(entry){//生成回复用的报表
+		getReport: function(entry, user){//生成回复用的报表
 			//console.log("getReport is called");
-			var user=entry.get("user");
+			//var user=entry.get("user");
 			var reportRef=entry.get("reportRef");
 			var promises=[];
 			var pro=[];
@@ -674,11 +692,27 @@
 
 	
 	//-----------------------------------------------------------------------------
+	//用户类（虚拟）
+	var FUser=Parse.Object.extend("FUser",{//instance method
+		setSelfAsFatherUser: function(){
+			var self=this;
+			
+			return self.save().then(function(selfUser){
+				self.set("fatherUser",selfUser);
+				return Parse.Promise.as(self);
+			})
+		}
+	},{//class method
+	
+	});
+	
+	
+	//-----------------------------------------------------------------------------
 	//微信接口
 Parse.Cloud.define("weixinInterface", function(request, response){
 	console.log("Cloud Function is called");
-	var FUser=Parse.Object.extend("FUser");//创建一个虚拟用户类
-	var qUser=new Parse.Query("FUser");
+	//var FUser=Parse.Object.extend("FUser");//创建一个虚拟用户类
+	var qUser=new Parse.Query(FUser);
 	
 	qUser.equalTo("userName",request.params.user);
 	qUser.find().then(function(qUser){//判断是否为新用户
@@ -689,6 +723,7 @@ Parse.Cloud.define("weixinInterface", function(request, response){
 			var d=new Date();
 			nUser.set("userName",request.params.user);
 			nUser.set("creatTime",d);
+			nUser.setSelfAsFatherUser();
 			return nUser.save();
 		}
 		
@@ -700,16 +735,19 @@ Parse.Cloud.define("weixinInterface", function(request, response){
 		userEntry.set("date",XMReport.nowMonth(0));
 		userEntry.set("deleted",0);
 		return userEntry.save();
+		
 	}).then(function(userEntry){
+		//console.log("parsing description...");
 		return userEntry.parseDescription();
 		
 	}).then(function(userEntry){//记录报表、生成回复，并发
+		//console.log("updating report and generating reply...");
 		var pro=[];
 		pro.push(userEntry.generateReply());
-		pro.push(XMReport.updateReport(userEntry));
+		pro.push(XMReport.updateReport(userEntry, userEntry.get("user")));
 		return Parse.Promise.when(pro);
 		
-	}).then(function(userEntry){//储存
+	}).then(function(userEntry, entry){//储存
 		return userEntry.save()
 		
 	}).then(function(userEntry){//回复用户
@@ -770,13 +808,13 @@ function updateEntryAndReport(userEntry){
 		userEntry.set("amount", -preAmount);
 		userEntry.set("debitRef",preDebitRef);
 		userEntry.set("creditRef",preCreditRef);
-		return userEntry.updateReport();
+		return XMReport.updateReport(userEntry, userEntry.get("user"));
 	}).then(function(userEntry){
 		//以新ref记录进报表中
 		userEntry.set("amount", preAmount);
 		userEntry.set("debitRef",nowDebitRef);
 		userEntry.set("creditRef",nowCreditRef);
-		return userEntry.updateReport();
+		return XMReport.updateReport(userEntry, userEntry.get("user"));
 	}).then(function(userEntry){
 		return userEntry.save();
 	},function(error){
