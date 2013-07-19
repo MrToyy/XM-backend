@@ -373,38 +373,6 @@
 			});
 		},
 		
-		updateReport: function(){//更新报表
-			var qReport=new Parse.Query(XMReport);
-			var self=this;
-			
-			if (self.get("returnCode")!="100") return Parse.Promise.as(self);//如果该输入内容不是记账命令，则跳过本函数
-			
-			qReport.equalTo("date",XMReport.nowMonth(0));
-			qReport.equalTo("user",self.get("user"));
-			
-			return qReport.find().then(function(qReport){
-				if (qReport.length){//返回已存在的报表
-					//console.log("Existing report");
-					return qReport[0].fetch();
-				}else{//创建一个新报表
-					var userReport=new XMReport();
-					userReport.set("user",self.get("user"));
-					userReport.set("date",XMReport.nowMonth(0));
-					//console.log("New report with date: "+userReport.get("date"));
-					return Parse.Promise.as(userReport);
-				}
-			}).then(function(userReport){
-				return userReport.recordEntry(self);
-			}).then(function(userReport){
-				return userReport.save();
-			}).then(function(userReport){
-				//console.log("Report is saved");
-				return self.setUserLastAction();
-			}).then(function(message){
-				return Parse.Promise.as(self);
-			});
-		},
-		
 		setUserLastAction: function(){
 			var user=this.get("user");
 			return user.fetch().then(function(user){
@@ -554,6 +522,37 @@
 			dStr+=d.getMonth()+1+set;
 			//console.log("nowMonth: "+dStr);
 			return dStr;
+		},
+		
+		updateReport: function(entry){//更新报表
+			var qReport=new Parse.Query(XMReport);
+			
+			if (entry.get("returnCode")!="100") return Parse.Promise.as(entry);//如果该输入内容不是记账命令，则跳过本函数
+			
+			qReport.equalTo("date",XMReport.nowMonth(0));
+			qReport.equalTo("user",entry.get("user"));
+			
+			return qReport.find().then(function(qReport){
+				if (qReport.length){//返回已存在的报表
+					//console.log("Existing report");
+					return qReport[0].fetch();
+				}else{//创建一个新报表
+					var userReport=new XMReport();
+					userReport.set("user",entry.get("user"));
+					userReport.set("date",XMReport.nowMonth(0));
+					//console.log("New report with date: "+userReport.get("date"));
+					return Parse.Promise.as(userReport);
+				}
+			}).then(function(userReport){
+				return userReport.recordEntry(entry);
+			}).then(function(userReport){
+				return userReport.save();
+			}).then(function(userReport){
+				//console.log("Report is saved");
+				return entry.setUserLastAction();
+			}).then(function(message){
+				return Parse.Promise.as(entry);
+			});
 		},
 		
 		getReport: function(entry){//生成回复用的报表
@@ -706,8 +705,8 @@ Parse.Cloud.define("weixinInterface", function(request, response){
 		
 	}).then(function(userEntry){//记录报表、生成回复，并发
 		var pro=[];
-		pro.push(userEntry.updateReport());
 		pro.push(userEntry.generateReply());
+		pro.push(XMReport.updateReport(userEntry));
 		return Parse.Promise.when(pro);
 		
 	}).then(function(userEntry){//储存
