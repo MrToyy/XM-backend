@@ -439,8 +439,9 @@
 	var XMReport = Parse.Object.extend("XMReport",{//instance methods
 		recordEntry:function(entry){//处理用户记录
 			var self=this;
-			//console.log("recordEntry is called");
+			console.log("recordEntry is called");
 			return entry.getUserLastAction().then(function(lastAction){
+				console.log("last action is: "+lastAction);
 				return self.inheritBalance(lastAction);
 			}).then(function(message){
 				var debitRef="acc"+entry.get("debitRef");
@@ -475,7 +476,7 @@
 			var self=this;
 			var promises=[];
 			
-			//console.log("inheritBalance is called");
+			console.log("inheritBalance is called");
 			if (isNaN(lastAction)) return Parse.Promise.as("New User");//如果lastActMonth未定义（新用户）则跳出
 			//console.log("this is not a new user");
 			if (lastAction==XMReport.nowMonth(0)) return Parse.Promise.as("Existing Monthly Report");//如果不是新一月报表则跳出
@@ -528,6 +529,7 @@
 			var qReport=new Parse.Query(XMReport);
 			var promises=[];
 			//var user=entry.get("user");
+			console.log("updateReport is called with user: "+user.id);
 			
 			if (entry.get("returnCode")!="100") return Parse.Promise.as(entry);//如果该输入内容不是记账命令，则跳过本函数
 			
@@ -537,21 +539,22 @@
 			promises.push(
 				qReport.find().then(function(qReport){
 					if (qReport.length){//返回已存在的报表
-						//console.log("Existing report");
+						console.log("Existing report: "+user.id);
 						return qReport[0].fetch();
 					}else{//创建一个新报表
 						var userReport=new XMReport();
 						userReport.set("user",user);
 						userReport.set("date",XMReport.nowMonth(0));
-						//console.log("New report with date: "+userReport.get("date"));
+						console.log("New report with date: "+userReport.get("date"));
 						return Parse.Promise.as(userReport);
 					}
 				}).then(function(userReport){
+					console.log("call recordEntry: "+user.id);
 					return userReport.recordEntry(entry);
 				}).then(function(userReport){
 					return userReport.save();
 				}).then(function(userReport){
-					//console.log("Report is saved");
+					console.log("Report is saved: "+user.id);
 					return entry.setUserLastAction();
 				})
 			);
@@ -559,16 +562,17 @@
 			promises.push(
 				user.fetch().then(function(user){
 					var fatherUser=user.get("fatherUser");
-					if (user==fatherUser){
+					if (user.id==fatherUser.id){
 						return Parse.Promise.as("no father user");
 					}else{
+						console.log("got fatherUser: "+fatherUser.id);
 						return XMReport.updateReport(entry, fatherUser);
 					}
 				})
 			);
 			
 			Parse.Promise.when(promises).then(function(message){
-				console.log("finished updating report");
+				console.log("finished updating report: "+user.id);
 				return Parse.Promise.as(entry);
 			});
 		},
